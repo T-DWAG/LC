@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LangGraph · 图与代码</title>
+<style>
+:root{color-scheme:light;--ink:#202423;--muted:#737d78;--line:#e6eae7;--soft:#f6f8f6;--accent:#486e5d}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:#fff;font:15px/1.75 system-ui,-apple-system,"Microsoft YaHei",sans-serif}main{max-width:1300px;margin:0 auto 0 200px;padding:0 32px}header{padding:80px 0 50px;border-bottom:1px solid var(--line)}.eyebrow,.num{font:12px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:var(--accent)}h1{font-size:clamp(32px,5vw,48px);line-height:1.15;letter-spacing:-.04em;margin:14px 0}header p,.muted{color:var(--muted)}header p{margin:0;max-width:640px}nav{position:fixed;inset:0 auto 0 0;width:200px;overflow:auto;display:flex;flex-direction:column;gap:3px;padding:42px 20px;border-right:1px solid var(--line);background:#fff;font-size:13px;z-index:2}nav::before{content:"目录";font-size:11px;letter-spacing:.12em;color:var(--muted);margin:0 10px 12px}nav a{padding:7px 10px;border-radius:5px}nav a:hover,nav a:focus-visible{background:var(--soft);text-decoration:none}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}section{padding:56px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px}.heading{display:flex;align-items:baseline;gap:16px;margin-bottom:22px}h2{font-size:24px;letter-spacing:-.03em;margin:0}.source{margin-left:auto;font-size:13px;white-space:nowrap}.pair{display:grid;grid-template-columns:minmax(220px, .8fr) minmax(0, 1.2fr);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:225px}.diagram{background:var(--soft);padding:24px;display:flex;align-items:center;justify-content:center;min-width:0}.flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;text-align:center}.node{border:1px solid #cdd8d1;background:#fff;border-radius:5px;padding:8px 11px;font:13px/1.4 ui-monospace,Consolas,monospace;max-width:100%;overflow-wrap:anywhere}.node.accent{border-color:#96b5a1;color:#335844;background:#f9fdf9}.arrow{color:#91a598;font-size:16px}.stack{display:flex;flex-direction:column;align-items:center;gap:6px}.small{font-size:11px;color:var(--muted);line-height:1.4}.code{min-width:0;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column}.code-label{padding:12px 18px;border-bottom:1px solid var(--line);font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--muted)}.code-label span{float:right;color:var(--accent)}pre{margin:0;padding:18px;overflow:auto;tab-size:4;font:13px/1.7 ui-monospace,Consolas,"Microsoft YaHei",monospace;color:#34443b;flex:1}.source-code{max-height:560px;overscroll-behavior:contain}.source-code code{font:inherit}.focus-line{background:#e8f3e9;box-shadow:inset 3px 0 #83aa8e;display:inline-block;min-width:100%}.tok-keyword{color:#67529c;font-weight:600}.tok-string{color:#a0653c}.tok-comment{color:#839189;font-style:italic}.tok-number{color:#557e9d}code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}p code,li code{background:var(--soft);padding:2px 4px;border-radius:3px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:22px}.notes p{margin:0;color:#59635e}.notes b{color:var(--ink);font-weight:600;margin-right:8px}.run{margin:18px 0 0;font-size:13px;color:var(--muted)}.setup{padding:38px 0;scroll-margin-top:20px}.setup h2{font-size:20px}.setup pre{background:var(--soft);border-radius:6px;margin-top:16px}.setup p{color:#59635e}.warning{border-left:2px solid #d3b675;padding-left:14px;font-size:13px}.end{padding:35px 0 70px;color:var(--muted);font-size:13px}@media(max-width:800px){main{margin:0;padding:0 20px}nav{position:sticky;top:0;width:auto;inset:auto;flex-direction:row;gap:4px;overflow-x:auto;white-space:nowrap;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line)}nav::before{display:none}nav a{padding:5px 8px}header{padding:50px 0 35px}section,.setup{scroll-margin-top:65px}.pair,.notes{grid-template-columns:1fr}.code{border-left:0;border-top:1px solid var(--line)}.diagram{min-height:170px}.heading{flex-wrap:wrap}.source{margin-left:0;width:100%}section{padding:40px 0}.notes{gap:12px}}
+</style>
+<style>.coder-guide{margin-top:36px}.coder-guide h3{margin:0 0 8px;font-size:19px}.coder-guide>p{color:#59635e}.guide-step{display:grid;grid-template-columns:minmax(180px,.75fr) minmax(0,1.25fr);border-top:1px solid var(--line)}.guide-step>div{padding:20px 22px 20px 0}.guide-step h4{font-size:14px;margin:0 0 8px;color:var(--accent)}.guide-step p{margin:0;color:#59635e}.guide-step pre{background:var(--soft);max-height:440px;margin:12px 0;border-radius:5px}.guide-step code{font:inherit}@media(max-width:800px){.guide-step{grid-template-columns:1fr}.guide-step>div{padding:18px 0 0}.guide-step pre{margin:12px 0 18px}}</style>
+</head>
+<body><nav aria-label="章节"><a href="#setup">准备</a><a href="#s01">01 模型</a><a href="#s02">02 提示词</a><a href="#s03">03 结构化</a><a href="#s04">04 工具</a><a href="#s05">05 图</a><a href="#s06">06 Agent</a><a href="#s07">07 记忆</a><a href="#s08">08 审批</a><a href="#s09">09 综合实例</a></nav><main>
+<header><div class="eyebrow">LANGCHAIN / LANGGRAPH · NOTES</div><h1>用图理解 Agent</h1><p>从一次模型调用，到工具、状态、记忆与人工介入。左边看链路，右边看完整代码与重点；完整实现以项目里的代码为准。</p></header>
+<div class="setup" id="setup"><h2>开始之前</h2><p>在项目根目录执行。已有环境时跳过创建；使用自己的兼容接口地址、模型 ID 和密钥，在根目录 <code>.env</code> 配置 <code>OPENAI_API_KEY</code>、<code>OPENAI_BASE_URL</code>、<code>OPENAI_MODEL</code>。</p><pre>conda create -n LC python=3.12 -y
+conda activate LC
+python -m pip install -U langchain-openai langchain-core langgraph python-dotenv</pre><p>页面右侧展示完整脚本，绿色底色标注与左侧链路相关的重点；代码框可滚动。源码更新后，在项目根目录执行 <code>python doc/sync-tutorial-code.py</code> 同步页面。下方命令均在项目根目录执行。01–07、09 需要模型服务，08 不需要；03、04、06、09 还依赖服务端相应能力。模型输出与调用次数可能不同。</p><p class="warning">不要提交或分享密钥。<code>code/s00_env.md</code> 含疑似真实密钥，请勿直接复制；若有效，建议立即撤销并更换。依赖未锁版本，升级可能影响 API，请保留已跑通环境的版本记录。</p></div>
+<section id="s01"><div class="heading"><span class="num">01</span><h2>先连接模型</h2><a class="source" href="../code/s01_probe.py">s01_probe.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="输入经聊天模型得到回复"><div class="flow"><span class="node">输入</span><span class="arrow">→</span><span class="node accent">ChatOpenAI</span><span class="arrow">→</span><span class="node">回复</span></div></div><div class="code"><div class="code-label">完整代码 · s01_probe.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv <span class="tok-comment"># 加载环境变量</span>
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI <span class="tok-comment"># 导入OpenAI模型</span>
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr 
+
+
+load_dotenv(override=<span class="tok-keyword">True</span>) <span class="tok-comment"># 项目 .env 覆盖系统里已有的同名变量</span>
+
+<span class="focus-line"><span class="tok-keyword">def</span> make_llm(*,temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:</span>
+
+    keys=os.getenv(<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>)
+    base=os.getenv(<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>)
+    model=os.getenv(<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>)
+
+
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> keys:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_API_KEY is not set&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> base:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_BASE_URL is not set&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> model:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_MODEL is not set&quot;</span>)
+
+<span class="focus-line">    <span class="tok-keyword">return</span> ChatOpenAI(api_key=SecretStr(keys), base_url=base, model=model, temperature=temperature)</span>
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+<span class="focus-line">    llm = make_llm()</span>
+<span class="focus-line">    msg=llm.invoke(<span class="tok-string">&quot;Hello, how are you?&quot;</span>)</span>
+<span class="focus-line">    print(msg.content)</span>
+
+    <span class="tok-comment"># 展示llm的配置</span>
+    print(llm.model_name)
+    print(llm.openai_api_base)
+    print(llm.openai_api_key)
+    print(llm.temperature)
+  
+</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>ChatOpenAI</code> 是模型客户端；<code>invoke</code> 发起调用并返回消息。</p><p><b>02 / 逻辑</b>从环境变量创建客户端，发送问候，打印回复及配置。先用它排查连接。</p></div><p class="run">运行：<code>python code/s01_probe.py</code></p></section>
+<section id="s02"><div class="heading"><span class="num">02</span><h2>提示词接入模型</h2><a class="source" href="../code/s02_prompt_model.py">s02_prompt_model.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="输入填入提示词模板，再交给模型得到回答"><div class="flow"><span class="node">input</span><span class="arrow">→</span><span class="node accent">Prompt</span><span class="arrow">→</span><span class="node accent">Model</span><span class="arrow">→</span><span class="node">回答</span></div></div><div class="code"><div class="code-label">完整代码 · s02_prompt_model.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langchain_core.prompts <span class="tok-keyword">import</span> ChatPromptTemplate
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+
+load_dotenv(override=<span class="tok-keyword">True</span>) <span class="tok-comment"># 项目 .env 覆盖系统里已有的同名变量</span>
+
+
+<span class="tok-keyword">def</span> make_llm(*,temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_API_KEY is not set&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>]:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_BASE_URL is not set&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>]:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_MODEL is not set&quot;</span>)
+
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        temperature=temperature,
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    )
+
+<span class="focus-line">prompt = ChatPromptTemplate.from_messages([</span>
+<span class="focus-line">    (<span class="tok-string">&quot;system&quot;</span>, <span class="tok-string">&quot;You are a helpful assistant.&quot;</span>),</span>
+<span class="focus-line">    (<span class="tok-string">&quot;user&quot;</span>, <span class="tok-string">&quot;explain the concept of {input}&quot;</span>),</span>
+])
+
+llm = make_llm()
+<span class="focus-line">chain = prompt | llm </span>
+<span class="focus-line">response = chain.invoke({<span class="tok-string">&quot;input&quot;</span>: <span class="tok-string">&quot; what is lcel&quot;</span>})</span>
+<span class="focus-line">print(response.content)</span></code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>ChatPromptTemplate</code> 按角色和变量生成消息；<code>|</code> 是 LCEL 的组合方式。</p><p><b>02 / 逻辑</b>填入 <code>input</code>，模板产出消息，模型接收消息并回答。</p></div><p class="run">运行：<code>python code/s02_prompt_model.py</code></p></section>
+<section id="s03"><div class="heading"><span class="num">03</span><h2>约束输出结构</h2><a class="source" href="../code/s03_structure.py">s03_structure.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="输入经模型和 Brief 结构约束输出标题与要点"><div class="flow"><span class="node">问题</span><span class="arrow">→</span><span class="node accent">Model + Brief</span><span class="arrow">→</span><span class="node">title<br>points[]</span></div></div><div class="code"><div class="code-label">完整代码 · s03_structure.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os 
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> BaseModel, Field
+
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+
+
+<span class="tok-keyword">def</span> make_llm(*,temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        temperature=temperature,
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    )
+
+
+<span class="focus-line"><span class="tok-keyword">class</span> Brief(BaseModel):</span>
+<span class="focus-line">    title:str =Field(description=<span class="tok-string">&quot;短标题&quot;</span>)</span>
+<span class="focus-line">    points:list[str]=Field(description=<span class="tok-string">&quot;3条要点&quot;</span>)</span>
+
+<span class="focus-line">llm=make_llm().with_structured_output(Brief)</span>
+<span class="focus-line">result=llm.invoke(<span class="tok-string">&quot;请总结一下《三体》系列小说的核心内容&quot;</span>)</span>
+<span class="focus-line"><span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(result, Brief):</span>
+    <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected Brief, got {type(result).__name__}&quot;</span>)
+print(<span class="tok-string">&quot;title:&quot;</span>,result.title)
+<span class="tok-keyword">for</span> i,p <span class="tok-keyword">in</span> enumerate(result.points,<span class="tok-number">1</span>):
+    print(<span class="tok-string">f&quot;{i}.{p}&quot;</span>)
+</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>BaseModel</code> 定义字段类型；<code>with_structured_output</code> 负责按结构生成和解析。</p><p><b>02 / 逻辑</b>让模型生成 <code>Brief</code>，再读取标题和要点。字段描述中的“3条”不是严格数量约束。</p></div><p class="run">运行：<code>python code/s03_structure.py</code> · 需服务端支持对应的结构化输出方式。</p></section>
+<section id="s04"><div class="heading"><span class="num">04</span><h2>让模型使用工具</h2><a class="source" href="../code/s04_tool.py">s04_tool.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="用户交给 Agent，Agent 和加法乘法工具往返，Agent 最终给出回答"><div class="stack"><div class="flow"><span class="node">用户</span><span class="arrow">→</span><span class="node accent">Agent</span><span class="arrow">→</span><span class="node">回答</span></div><div class="small">调用工具 ↓　↑ 工具结果</div><div class="node">add · multiply</div></div></div><div class="code"><div class="code-label">完整代码 · s04_tool.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os 
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI  <span class="tok-comment"># OpenAI的模型</span>
+<span class="tok-keyword">from</span> langgraph.prebuilt <span class="tok-keyword">import</span> create_react_agent  <span class="tok-comment"># 基于ReAct策略的Agent</span>
+<span class="tok-keyword">from</span> langchain_core.tools <span class="tok-keyword">import</span> tool  <span class="tok-comment"># 工具</span>
+
+
+load_dotenv(override=<span class="tok-keyword">True</span>)  <span class="tok-comment"># 项目 .env 覆盖系统里已有的同名变量</span>
+
+<span class="tok-keyword">def</span> make_llm(*,temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model =os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        api_key =os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>],
+        base_url =os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+        temperature =temperature,
+    )
+
+<span class="focus-line"><span class="tok-keyword">@</span>tool</span>
+<span class="focus-line"><span class="tok-keyword">def</span> add(a:int,b:int) -&gt; int:</span>
+    <span class="tok-string">&quot;&quot;&quot;add a and b&quot;&quot;&quot;</span>
+    <span class="tok-keyword">return</span> a + b
+
+<span class="focus-line"><span class="tok-keyword">@</span>tool</span>
+<span class="focus-line"><span class="tok-keyword">def</span> multiply(a:int,b:int) -&gt; int:</span>
+    <span class="tok-string">&quot;&quot;&quot;multiply a and b&quot;&quot;&quot;</span>
+    <span class="tok-keyword">return</span> a * b
+
+llm = make_llm()
+<span class="focus-line">agent = create_react_agent(llm, tools=[add, multiply])</span>
+
+<span class="focus-line">result =agent.invoke(</span>
+<span class="focus-line">    {<span class="tok-string">&quot;messages&quot;</span>: [{<span class="tok-string">&quot;role&quot;</span>: <span class="tok-string">&quot;user&quot;</span>, <span class="tok-string">&quot;content&quot;</span>: <span class="tok-string">&quot;先算 3+4，再把结果乘以 2，只给最终数字&quot;</span>}]}</span>
+)
+<span class="tok-keyword">for</span> m <span class="tok-keyword">in</span> result[<span class="tok-string">&quot;messages&quot;</span>]:
+   m.pretty_print()</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>@tool</code> 包装函数；预构建 Agent 负责模型和工具间的调用循环。</p><p><b>02 / 逻辑</b>模型可调用加法、乘法并读取结果，最终回答；正常算术结果是 14。实际调用取决于模型。</p></div><p class="run">运行：<code>python code/s04_tool.py</code> · 需要工具调用能力；预构建 API 可能随版本变化。</p></section>
+<section id="s05"><div class="heading"><span class="num">05</span><h2>把步骤连成图</h2><a class="source" href="../code/s05_min_graph.py">s05_min_graph.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="从开始依次生成话题、写笑话、润色，然后结束"><div class="flow"><span class="node">START</span><span class="arrow">→</span><span class="node accent">话题</span><span class="arrow">→</span><span class="node accent">写笑话</span><span class="arrow">→</span><span class="node accent">润色</span><span class="arrow">→</span><span class="node">END</span></div></div><div class="code"><div class="code-label">完整代码 · s05_min_graph.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, StateGraph
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> NotRequired, TypedDict
+
+load_dotenv(override=<span class="tok-keyword">True</span>)  <span class="tok-comment"># 项目 .env 覆盖系统里已有的同名变量</span>
+
+
+<span class="tok-keyword">def</span> make_llm(*, temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_API_KEY is not set&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>]:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_BASE_URL is not set&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>]:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;OPENAI_MODEL is not set&quot;</span>)
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        temperature=temperature,
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    )
+
+
+<span class="focus-line"><span class="tok-keyword">class</span> State(TypedDict):</span>
+<span class="focus-line">    topic: NotRequired[str]</span>
+<span class="focus-line">    joke: NotRequired[str]</span>
+<span class="focus-line">    polished: NotRequired[str]</span>
+
+
+<span class="tok-keyword">def</span> as_text(content: str | list[str | dict]) -&gt; str:
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(content, str):
+        <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected str, got {type(content).__name__}&quot;</span>)
+    <span class="tok-keyword">return</span> content.strip()
+
+
+llm = make_llm()
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> generate_topic(state: State) -&gt; State:</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;topic&quot;</span>: state.get(<span class="tok-string">&quot;topic&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;socks in the dryer&quot;</span>}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> write_joke(state: State) -&gt; State:</span>
+    topic = state.get(<span class="tok-string">&quot;topic&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> topic:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;topic is not set&quot;</span>)
+    msg = llm.invoke(<span class="tok-string">f&quot;Write a one-line joke about {topic}. Reply with the joke only.&quot;</span>)
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;joke&quot;</span>: as_text(msg.content)}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> polish(state: State) -&gt; State:</span>
+    joke = state.get(<span class="tok-string">&quot;joke&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> joke:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;joke is not set&quot;</span>)
+    msg = llm.invoke(
+        <span class="tok-string">&quot;Rewrite this joke so it is shorter and funnier. Reply with the joke only.\n&quot;</span> + joke
+    )
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;polished&quot;</span>: as_text(msg.content)}
+
+
+<span class="focus-line">graph = StateGraph(State)</span>
+<span class="focus-line">graph.add_node(<span class="tok-string">&quot;generate_topic&quot;</span>, generate_topic)</span>
+<span class="focus-line">graph.add_node(<span class="tok-string">&quot;write_joke&quot;</span>, write_joke)</span>
+<span class="focus-line">graph.add_node(<span class="tok-string">&quot;polish&quot;</span>, polish)</span>
+<span class="focus-line">graph.add_edge(START, <span class="tok-string">&quot;generate_topic&quot;</span>)</span>
+<span class="focus-line">graph.add_edge(<span class="tok-string">&quot;generate_topic&quot;</span>, <span class="tok-string">&quot;write_joke&quot;</span>)</span>
+<span class="focus-line">graph.add_edge(<span class="tok-string">&quot;write_joke&quot;</span>, <span class="tok-string">&quot;polish&quot;</span>)</span>
+<span class="focus-line">graph.add_edge(<span class="tok-string">&quot;polish&quot;</span>, END)</span>
+
+<span class="focus-line">result = graph.compile().invoke({<span class="tok-string">&quot;topic&quot;</span>:<span class="tok-string">&quot;电梯里的陌生人&quot;</span>})</span>
+print(<span class="tok-string">&quot;topic:&quot;</span>, result[<span class="tok-string">&quot;topic&quot;</span>])
+print(<span class="tok-string">&quot;joke:&quot;</span>, result[<span class="tok-string">&quot;joke&quot;</span>])
+print(<span class="tok-string">&quot;polished:&quot;</span>, result[<span class="tok-string">&quot;polished&quot;</span>])
+</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>StateGraph</code> 定义共享状态、节点和边；<code>compile</code> 后才能调用。</p><p><b>02 / 逻辑</b>节点依次更新话题、笑话、润色结果。后两个节点调用模型，本例并非离线图。</p></div><p class="run">运行：<code>python code/s05_min_graph.py</code></p></section>
+<section id="s06"><div class="heading"><span class="num">06</span><h2>自己组装 Agent</h2><a class="source" href="../code/s06_calc_agent.py">s06_calc_agent.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="从开始进入模型，模型有工具请求时执行工具并返回模型，没有请求时结束"><div class="stack"><div class="flow"><span class="node">START</span><span class="arrow">→</span><span class="node accent">llm_call</span><span class="arrow">→</span><span class="node">END</span></div><div class="small">有工具请求 ↓　↑ 工具结果</div><div class="node accent">ToolNode · add / multiply / divide</div><div class="small">无工具请求 → END</div></div></div><div class="code"><div class="code-label">完整代码 · s06_calc_agent.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os
+<span class="tok-keyword">import</span> operator  <span class="tok-comment"># 导入运算符</span>
+<span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Annotated
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> TypedDict
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.messages <span class="tok-keyword">import</span> AnyMessage, HumanMessage, SystemMessage
+<span class="tok-keyword">from</span> langchain_core.tools <span class="tok-keyword">import</span> tool
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> START, StateGraph
+<span class="tok-keyword">from</span> langgraph.prebuilt <span class="tok-keyword">import</span> ToolNode, tools_condition
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+
+
+<span class="tok-keyword">def</span> make_llm(*,temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model =os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url =os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+        temperature =temperature,
+    )
+
+
+
+<span class="tok-keyword">@</span>tool
+<span class="tok-keyword">def</span> add(a:int,b:int) -&gt; int:
+    <span class="tok-string">&quot;&quot;&quot;add a and b&quot;&quot;&quot;</span>
+    <span class="tok-keyword">return</span> a + b
+
+<span class="tok-keyword">@</span>tool
+<span class="tok-keyword">def</span> multiply(a:int,b:int) -&gt; int:
+    <span class="tok-string">&quot;&quot;&quot;multiply a and b&quot;&quot;&quot;</span>
+    <span class="tok-keyword">return</span> a * b
+
+<span class="tok-keyword">@</span>tool
+<span class="tok-keyword">def</span> divide(a:int,b:int) -&gt; float:
+    <span class="tok-string">&quot;&quot;&quot;divide a by b&quot;&quot;&quot;</span>
+    <span class="tok-keyword">return</span> a / b
+
+tools = [add, multiply, divide]
+
+<span class="focus-line">model_with_tools = make_llm().bind_tools(tools)</span>
+
+<span class="focus-line"><span class="tok-keyword">class</span> MessageState(TypedDict):</span>
+<span class="focus-line">    messages:Annotated[list[AnyMessage], operator.add]</span>
+<span class="focus-line">    llm_calls:int</span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> llm_call(state:MessageState) :</span>
+    <span class="tok-keyword">return</span> {
+        <span class="tok-string">&quot;messages&quot;</span>: [
+            model_with_tools.invoke(
+                [SystemMessage(content=<span class="tok-string">&quot;You are a helpful arithmetic assistant.&quot;</span>)] + state[<span class="tok-string">&quot;messages&quot;</span>]
+            )
+        ],
+        <span class="tok-string">&quot;llm_calls&quot;</span>: state[<span class="tok-string">&quot;llm_calls&quot;</span>] + <span class="tok-number">1</span>,
+    }
+
+
+<span class="focus-line">agent_builder = StateGraph(MessageState)</span>
+<span class="focus-line">agent_builder.add_node(<span class="tok-string">&quot;llm_call&quot;</span>, llm_call)</span>
+<span class="focus-line">agent_builder.add_node(<span class="tok-string">&quot;tools&quot;</span>, ToolNode(tools))</span>
+<span class="focus-line">agent_builder.add_edge(START, <span class="tok-string">&quot;llm_call&quot;</span>)</span>
+<span class="focus-line">agent_builder.add_conditional_edges(<span class="tok-string">&quot;llm_call&quot;</span>, tools_condition)</span>
+<span class="focus-line">agent_builder.add_edge(<span class="tok-string">&quot;tools&quot;</span>, <span class="tok-string">&quot;llm_call&quot;</span>)</span>
+<span class="focus-line">agent = agent_builder.compile()</span>
+
+init: MessageState = {
+    <span class="tok-string">&quot;messages&quot;</span>: [HumanMessage(content=<span class="tok-string">&quot;Add 3 and 4. Then multiply the result by 2.&quot;</span>)],
+    <span class="tok-string">&quot;llm_calls&quot;</span>: <span class="tok-number">0</span>,
+}
+out = agent.invoke(init)
+<span class="tok-keyword">for</span> m <span class="tok-keyword">in</span> out[<span class="tok-string">&quot;messages&quot;</span>]:
+    m.pretty_print()
+print(<span class="tok-string">&quot;llm_calls:&quot;</span>, out[<span class="tok-string">&quot;llm_calls&quot;</span>])</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>bind_tools</code> 提供工具定义；<code>ToolNode</code> 执行工具；<code>tools_condition</code> 决定继续还是结束。</p><p><b>02 / 逻辑</b>模型请求工具就执行并回到模型，否则结束。<code>operator.add</code> 让新消息追加到历史，<code>llm_calls</code> 记录模型调用次数。</p></div><p class="run">运行：<code>python code/s06_calc_agent.py</code> · 工具错误、除零或服务端不支持工具调用时可能失败。</p></section>
+<section id="s07"><div class="heading"><span class="num">07</span><h2>给对话加记忆</h2><a class="source" href="../code/s07_checkpoint.py">s07_checkpoint.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="同一会话读取检查点中的消息，调用模型后保存更新后的状态"><div class="stack"><div class="flow"><span class="node">新消息</span><span class="arrow">→</span><span class="node accent">model</span><span class="arrow">→</span><span class="node">回答</span></div><div class="small">读取历史 ↑　↓ 保存状态</div><div class="node accent">checkpointer · thread_id</div></div></div><div class="code"><div class="code-label">完整代码 · s07_checkpoint.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.messages <span class="tok-keyword">import</span> HumanMessage, SystemMessage
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.checkpoint.memory <span class="tok-keyword">import</span> InMemorySaver
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, MessagesState, StateGraph
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+
+load_dotenv(override=<span class="tok-keyword">True</span>)<span class="tok-comment">#加载环境变量</span>
+
+<span class="tok-comment"># 根据变量创建LLM模型</span>
+<span class="tok-keyword">def</span> make_llm(*,temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model =os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url =os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+        temperature =temperature,
+    )
+
+llm = make_llm()
+
+
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> call_model(state: MessagesState):</span>
+<span class="focus-line">    msgs= [SystemMessage(content=<span class="tok-string">&quot;You are a helpful assistant.&quot;</span>)] + state[<span class="tok-string">&quot;messages&quot;</span>]</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;messages&quot;</span>: [llm.invoke(msgs)]}</span>
+
+app =(
+<span class="focus-line">    StateGraph(MessagesState)</span>
+<span class="focus-line">    .add_node(<span class="tok-string">&quot;model&quot;</span>,call_model)</span>
+<span class="focus-line">    .add_edge(START,<span class="tok-string">&quot;model&quot;</span>)</span>
+<span class="focus-line">    .add_edge(<span class="tok-string">&quot;model&quot;</span>,END)</span>
+<span class="focus-line">    .compile(checkpointer=InMemorySaver())</span>
+)
+
+
+<span class="focus-line">cfg: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: <span class="tok-string">&quot;123&quot;</span>}}</span>
+cfg2: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: <span class="tok-string">&quot;456&quot;</span>}}
+
+
+<span class="focus-line">r1=app.invoke({<span class="tok-string">&quot;messages&quot;</span>:[HumanMessage(content=<span class="tok-string">&quot;call me T-Dwag,remember my name.&quot;</span>)]},config=cfg)</span>
+print(r1[<span class="tok-string">&quot;messages&quot;</span>][-<span class="tok-number">1</span>].content)
+
+
+<span class="focus-line">r2=app.invoke({<span class="tok-string">&quot;messages&quot;</span>:[HumanMessage(content=<span class="tok-string">&quot;what is my name?&quot;</span>)]},config=cfg)</span>
+<span class="tok-comment"># r2=app.invoke({&quot;messages&quot;:[HumanMessage(content=&quot;what is my name?&quot;)]},config=cfg2)</span>
+
+print(r2[<span class="tok-string">&quot;messages&quot;</span>][-<span class="tok-number">1</span>].content)</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>MessagesState</code> 管理消息合并；<code>InMemorySaver</code> 保存检查点，<code>thread_id</code> 区分会话。</p><p><b>02 / 逻辑</b>两次使用同一线程，第二次可读取前文；换线程则不继承。内存检查点不跨进程保存。</p></div><p class="run">运行：<code>python code/s07_checkpoint.py</code></p></section>
+<section id="s08"><div class="heading"><span class="num">08</span><h2>让人介入决策</h2><a class="source" href="../code/s08_hitl.py">s08_hitl.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="审批节点暂停，人工决定后通过则继续，拒绝则取消"><div class="stack"><div class="flow"><span class="node">START</span><span class="arrow">→</span><span class="node accent">approval</span><span class="arrow">→</span><span class="node">暂停</span></div><div class="arrow">↓</div><div class="flow"><span class="node">批准</span><span class="arrow">←</span><span class="node accent">resume</span><span class="arrow">→</span><span class="node">拒绝</span></div><div class="small">proceed → END　　　　 cancel → END</div></div></div><div class="code"><div class="code-label">完整代码 · s08_hitl.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Literal, Optional, TypedDict
+
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langgraph.checkpoint.memory <span class="tok-keyword">import</span> InMemorySaver
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, StateGraph
+<span class="tok-keyword">from</span> langgraph.types <span class="tok-keyword">import</span> Command, interrupt
+
+
+<span class="tok-comment"># 审批状态：action_details 是待审的动作，status 是还在等、已通过、还是已拒绝。</span>
+<span class="tok-keyword">class</span> ApprovalState(TypedDict):
+    action_details: str
+    status: Optional[Literal[<span class="tok-string">&quot;pending&quot;</span>, <span class="tok-string">&quot;approved&quot;</span>, <span class="tok-string">&quot;rejected&quot;</span>]]
+
+
+<span class="tok-comment"># 审批节点。interrupt 把问题抛给外面并停住当前这轮。</span>
+<span class="tok-comment"># 同一个 thread 再次 invoke(Command(resume=...)) 时，resume 的值变成 decision。</span>
+<span class="tok-comment"># Command(goto=...) 按这个值跳到 proceed 或 cancel，所以这里不用再加普通边。</span>
+<span class="focus-line"><span class="tok-keyword">def</span> approval_node(state: ApprovalState) -&gt; Command[Literal[<span class="tok-string">&quot;proceed&quot;</span>, <span class="tok-string">&quot;cancel&quot;</span>]]:</span>
+<span class="focus-line">    decision = interrupt(</span>
+        {
+            <span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;Do you approve of this action?&quot;</span>,
+            <span class="tok-string">&quot;details&quot;</span>: state[<span class="tok-string">&quot;action_details&quot;</span>],
+        }
+    )
+<span class="focus-line">    <span class="tok-keyword">return</span> Command(goto=<span class="tok-string">&quot;proceed&quot;</span> <span class="tok-keyword">if</span> decision <span class="tok-keyword">else</span> <span class="tok-string">&quot;cancel&quot;</span>)</span>
+
+
+<span class="tok-comment"># 人点了同意：把状态写成 approved。</span>
+<span class="tok-keyword">def</span> proceed_node(state: ApprovalState):
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;approved&quot;</span>}
+
+
+<span class="tok-comment"># 人点了拒绝：把状态写成 rejected。</span>
+<span class="tok-keyword">def</span> cancel_node(state: ApprovalState):
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;rejected&quot;</span>}
+
+
+<span class="tok-comment"># interrupt 必须有 checkpointer，挂起的位置才有地方记下来。</span>
+<span class="tok-comment"># InMemorySaver 只存在当前进程里，按 thread_id 分开每一单。</span>
+graph = (
+<span class="focus-line">    StateGraph(ApprovalState)</span>
+<span class="focus-line">    .add_node(<span class="tok-string">&quot;approval&quot;</span>, approval_node)</span>
+<span class="focus-line">    .add_node(<span class="tok-string">&quot;proceed&quot;</span>, proceed_node)</span>
+<span class="focus-line">    .add_node(<span class="tok-string">&quot;cancel&quot;</span>, cancel_node)</span>
+<span class="focus-line">    .add_edge(START, <span class="tok-string">&quot;approval&quot;</span>)</span>
+<span class="focus-line">    .add_edge(<span class="tok-string">&quot;proceed&quot;</span>, END)</span>
+<span class="focus-line">    .add_edge(<span class="tok-string">&quot;cancel&quot;</span>, END)</span>
+<span class="focus-line">    .compile(checkpointer=InMemorySaver())</span>
+)
+
+
+<span class="tok-comment"># 第一单：转账。第一次 invoke 停在 approval，结果里有 __interrupt__，status 还是 pending。</span>
+cfg: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: <span class="tok-string">&quot;123&quot;</span>}}
+<span class="focus-line">paused = graph.invoke(</span>
+    {<span class="tok-string">&quot;action_details&quot;</span>: <span class="tok-string">&quot;Transfer $500&quot;</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;pending&quot;</span>},
+    config=cfg,
+)
+print(<span class="tok-string">&quot;interrupt&quot;</span>, paused.get(<span class="tok-string">&quot;__interrupt__&quot;</span>))
+
+<span class="tok-comment"># 同一个 thread_id 恢复。resume=True 传回 interrupt()，于是走进 proceed。</span>
+<span class="focus-line">approved = graph.invoke(Command(resume=<span class="tok-keyword">True</span>), cfg)</span>
+print(<span class="tok-string">&quot;after approve:&quot;</span>, approved[<span class="tok-string">&quot;status&quot;</span>])
+
+
+
+
+
+
+
+
+<span class="tok-comment"># 第二单用另一个 thread_id，和上面那单的存档互不影响。</span>
+cfg2: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: <span class="tok-string">&quot;456&quot;</span>}}
+graph.invoke({<span class="tok-string">&quot;action_details&quot;</span>: <span class="tok-string">&quot;Delete DB&quot;</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;pending&quot;</span>}, cfg2)
+<span class="tok-comment"># resume=False 传回 interrupt()，于是走进 cancel。</span>
+<span class="focus-line">rejected = graph.invoke(Command(resume=<span class="tok-keyword">False</span>), cfg2)</span>
+print(<span class="tok-string">&quot;after reject:&quot;</span>, rejected[<span class="tok-string">&quot;status&quot;</span>])
+</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>interrupt</code> 暂停并暴露审批信息；<code>Command</code> 恢复执行或指定下一节点。</p><p><b>02 / 逻辑</b>同一线程传回决定后走批准或拒绝分支。示例模拟人工决定，不执行实际转账或删除操作。</p></div><p class="run">运行：<code>python code/s08_hitl.py</code> · 恢复时节点从头重跑到中断处，之前的副作用应安全可重试。</p></section>
+<section id="s09"><div class="heading"><span class="num">09</span><h2>综合实例：退款审批</h2><a class="source" href="../code/s09_refund_agent.py">s09_refund_agent.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="提取申请、查订单、规则检查、人工审批和模拟退款"><div class="stack"><div class="node">用户退款申请</div><div class="arrow">↓</div><div class="node accent">模型 · 提取订单号和原因</div><div class="small">缺信息 → 提示重新申请 → END</div><div class="arrow">↓</div><div class="node accent">工具 · 查询订单</div><div class="arrow">↓</div><div class="node accent">代码 · 退款规则检查</div><div class="small">订单不存在 / 已退款 / 超期 → END</div><div class="arrow">↓ 符合规则</div><div class="node accent">人工审批 · interrupt</div><div class="small">拒绝 → END</div><div class="arrow">↓ 批准</div><div class="node accent">模拟退款</div><div class="small">成功 / 失败 → END</div></div></div><div class="code"><div class="code-label">完整代码 · s09_refund_agent.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s09_refund_agent.py — 退款申请演示：提取、查单、规则、审批、模拟退款。</span>
+
+<span class="tok-string">项目根目录运行：python code/s09_refund_agent.py</span>
+<span class="tok-string">本例使用模拟订单和退款结果，不连接真实支付系统。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> os
+<span class="tok-keyword">from</span> datetime <span class="tok-keyword">import</span> date, timedelta
+<span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Literal
+<span class="tok-keyword">from</span> uuid <span class="tok-keyword">import</span> uuid4
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langchain_core.tools <span class="tok-keyword">import</span> tool
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.checkpoint.memory <span class="tok-keyword">import</span> InMemorySaver
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, StateGraph
+<span class="tok-keyword">from</span> langgraph.types <span class="tok-keyword">import</span> Command, interrupt
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> BaseModel, Field, SecretStr
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> NotRequired, TypedDict
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+
+
+<span class="focus-line"><span class="tok-keyword">class</span> RefundRequest(BaseModel):</span>
+    <span class="tok-string">&quot;&quot;&quot;提取用户提供的内容，不要猜测未提供的信息。&quot;&quot;&quot;</span>
+
+    order_id: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;订单号；未提供时为 null&quot;</span>)
+    reason: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;退款原因；未提供时为 null&quot;</span>)
+
+
+<span class="tok-keyword">class</span> Order(TypedDict):
+    order_id: str
+    amount: int
+    status: Literal[<span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;refunded&quot;</span>, <span class="tok-string">&quot;unpaid&quot;</span>]
+    paid_on: str
+    simulate_failure: bool
+
+
+<span class="focus-line"><span class="tok-keyword">class</span> RefundState(TypedDict):</span>
+    user_text: str
+    order_id: NotRequired[str | <span class="tok-keyword">None</span>]
+    reason: NotRequired[str | <span class="tok-keyword">None</span>]
+    order: NotRequired[Order | <span class="tok-keyword">None</span>]
+    status: NotRequired[str]
+    result: NotRequired[str]
+
+
+<span class="focus-line"><span class="tok-keyword">@</span>tool</span>
+<span class="focus-line"><span class="tok-keyword">def</span> lookup_order(order_id: str) -&gt; Order | <span class="tok-keyword">None</span>:</span>
+    <span class="tok-string">&quot;&quot;&quot;根据订单号查询模拟订单，不存在返回 None。&quot;&quot;&quot;</span>
+    <span class="tok-comment"># 日期相对今天构造，让练习不因日历变化而过期。</span>
+    today = date.today()
+    orders: dict[str, Order] = {
+        <span class="tok-string">&quot;A100&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;A100&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">199</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: today.isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">False</span>},
+        <span class="tok-string">&quot;B200&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;B200&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">89</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refunded&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: today.isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">False</span>},
+        <span class="tok-string">&quot;C300&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;C300&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">50</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: (today - timedelta(days=<span class="tok-number">31</span>)).isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">False</span>},
+        <span class="tok-string">&quot;D400&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;D400&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">99</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: today.isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">True</span>},
+    }
+    <span class="tok-keyword">return</span> orders.get(order_id.strip().upper())
+
+
+llm = ChatOpenAI(
+    model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+    api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+    base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    temperature=<span class="tok-number">0</span>,
+)
+<span class="focus-line">extractor = llm.with_structured_output(RefundRequest)</span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> extract_request(state: RefundState) -&gt; dict:</span>
+    request = extractor.invoke(state[<span class="tok-string">&quot;user_text&quot;</span>])
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(request, RefundRequest):
+        <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected RefundRequest, got {type(request).__name__}&quot;</span>)
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: request.order_id, <span class="tok-string">&quot;reason&quot;</span>: request.reason}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> route_request(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;missing&quot;</span>]:</span>
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;order_id&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip() <span class="tok-keyword">or</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;reason&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip():
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;missing&quot;</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+
+
+<span class="tok-keyword">def</span> missing_info(state: RefundState) -&gt; dict:
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;missing_info&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;请提供订单号和退款原因后重新申请。&quot;</span>}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> check_order(state: RefundState) -&gt; dict:</span>
+    order_id = state.get(<span class="tok-string">&quot;order_id&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> order_id:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;order_id is required&quot;</span>)
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order&quot;</span>: lookup_order.invoke({<span class="tok-string">&quot;order_id&quot;</span>: order_id})}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> check_policy(state: RefundState) -&gt; dict:</span>
+    <span class="tok-string">&quot;&quot;&quot;示例规则：订单已支付，且支付日期距今天不超过 30 天。&quot;&quot;&quot;</span>
+    order = state.get(<span class="tok-string">&quot;order&quot;</span>)
+    <span class="tok-keyword">if</span> order <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;order_not_found&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;订单不存在。&quot;</span>}
+    <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;status&quot;</span>] != <span class="tok-string">&quot;paid&quot;</span>:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;not_eligible&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;订单未支付或已退款。&quot;</span>}
+    paid_on = date.fromisoformat(order[<span class="tok-string">&quot;paid_on&quot;</span>])
+    age = (date.today() - paid_on).days
+    <span class="tok-keyword">if</span> age &lt; <span class="tok-number">0</span> <span class="tok-keyword">or</span> age &gt; <span class="tok-number">30</span>:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;not_eligible&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;订单支付日期异常或已超过 30 天退款期限。&quot;</span>}
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;eligible&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;符合示例退款规则，等待人工审批。&quot;</span>}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> route_policy(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>]:</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;approval&quot;</span> <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;status&quot;</span>) == <span class="tok-string">&quot;eligible&quot;</span> <span class="tok-keyword">else</span> <span class="tok-string">&quot;finish&quot;</span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> approve_refund(state: RefundState) -&gt; Command[Literal[<span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>]]:</span>
+<span class="focus-line">    decision = interrupt({</span>
+        <span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;是否批准退款？&quot;</span>,
+        <span class="tok-string">&quot;order&quot;</span>: state.get(<span class="tok-string">&quot;order&quot;</span>),
+        <span class="tok-string">&quot;reason&quot;</span>: state.get(<span class="tok-string">&quot;reason&quot;</span>),
+    })
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(decision, bool):
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;审批结果必须是 True 或 False&quot;</span>)
+<span class="focus-line">    <span class="tok-keyword">return</span> Command(goto=<span class="tok-string">&quot;refund&quot;</span> <span class="tok-keyword">if</span> decision <span class="tok-keyword">else</span> <span class="tok-string">&quot;reject&quot;</span>)</span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> refund(state: RefundState) -&gt; dict:</span>
+    <span class="tok-comment"># 仅模拟执行结果，批准并不等于退款成功。</span>
+    order = state.get(<span class="tok-string">&quot;order&quot;</span>)
+    <span class="tok-keyword">if</span> order <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;order is required&quot;</span>)
+    <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;simulate_failure&quot;</span>]:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_failed&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;审批通过，但模拟退款失败。&quot;</span>}
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_succeeded&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">f&quot;模拟退款成功：{order[&#x27;order_id&#x27;]}&quot;</span>}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> reject(state: RefundState) -&gt; dict:</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;rejected&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;退款申请未获批准。&quot;</span>}
+
+
+builder = StateGraph(RefundState)
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;extract&quot;</span>, extract_request)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;missing&quot;</span>, missing_info)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;lookup&quot;</span>, check_order)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;policy&quot;</span>, check_policy)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;approval&quot;</span>, approve_refund)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;refund&quot;</span>, refund)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;reject&quot;</span>, reject)</span>
+<span class="focus-line">builder.add_edge(START, <span class="tok-string">&quot;extract&quot;</span>)</span>
+<span class="focus-line">builder.add_conditional_edges(<span class="tok-string">&quot;extract&quot;</span>, route_request)</span>
+<span class="focus-line">builder.add_edge(<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;policy&quot;</span>)</span>
+<span class="focus-line">builder.add_conditional_edges(<span class="tok-string">&quot;policy&quot;</span>, route_policy, {<span class="tok-string">&quot;approval&quot;</span>: <span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>: END})</span>
+<span class="tok-keyword">for</span> node <span class="tok-keyword">in</span> (<span class="tok-string">&quot;missing&quot;</span>, <span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>):
+    builder.add_edge(node, END)
+<span class="focus-line">app = builder.compile(checkpointer=InMemorySaver())</span>
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: str(uuid4())}}
+    text = input(<span class="tok-string">&quot;退款申请：&quot;</span>).strip()
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> text:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;请输入退款申请&quot;</span>)
+
+<span class="focus-line">    result = app.invoke({<span class="tok-string">&quot;user_text&quot;</span>: text}, config=config)</span>
+    <span class="tok-keyword">if</span> result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>):
+        print(<span class="tok-string">&quot;待审批：&quot;</span>, result[<span class="tok-string">&quot;__interrupt__&quot;</span>][<span class="tok-number">0</span>].value)
+        <span class="tok-keyword">while</span> <span class="tok-keyword">True</span>:
+            answer = input(<span class="tok-string">&quot;批准退款？输入 y 或 n：&quot;</span>).strip().lower()
+            <span class="tok-keyword">if</span> answer <span class="tok-keyword">in</span> (<span class="tok-string">&quot;y&quot;</span>, <span class="tok-string">&quot;n&quot;</span>):
+                <span class="tok-keyword">break</span>
+            print(<span class="tok-string">&quot;请输入 y 或 n。&quot;</span>)
+<span class="focus-line">        result = app.invoke(Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>)), config=config)</span>
+    print(<span class="tok-string">&quot;状态：&quot;</span>, result[<span class="tok-string">&quot;status&quot;</span>])
+    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])
+</code></pre></div></div><div class="notes"><p><b>01 / 组件</b>模型提取字段；工具查本地订单；Python 规则判断资格；状态图负责路由；检查点支持人工审批的暂停与恢复。</p><p><b>02 / 逻辑</b>只有符合规则的订单才进入审批；批准后模拟退款，成功和失败是不同结果。模型不负责决定退款资格。</p></div><!-- guide:start --><div class="coder-guide"><h3>从程序员的视角：边设计边对照代码</h3><p>先看左边要解决的问题，再看右边源码。以下片段按设计顺序排列，来自同一个 s09 文件，并非独立可运行程序。</p><div class="guide-step"><div><h4>01 · 先确定数据</h4><p>哪些信息需要在节点之间传递？把用户原文、提取结果、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。</p></div><pre><code><span class="tok-keyword">class</span> RefundState(TypedDict):
+    user_text: str
+    order_id: NotRequired[str | <span class="tok-keyword">None</span>]
+    reason: NotRequired[str | <span class="tok-keyword">None</span>]
+    order: NotRequired[Order | <span class="tok-keyword">None</span>]
+    status: NotRequired[str]
+    result: NotRequired[str]</code></pre></div><div class="guide-step"><div><h4>02 · 约束模型输出</h4><p>模型只负责从用户原文中提取订单号和原因；这两个字段是模型的输出契约，不是整个图的状态。</p></div><pre><code><span class="tok-keyword">class</span> RefundRequest(BaseModel):
+    <span class="tok-string">&quot;&quot;&quot;提取用户提供的内容，不要猜测未提供的信息。&quot;&quot;&quot;</span>
+
+    order_id: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;订单号；未提供时为 null&quot;</span>)
+    reason: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;退款原因；未提供时为 null&quot;</span>)
+
+extractor = llm.with_structured_output(RefundRequest)</code></pre></div><div class="guide-step"><div><h4>03 · 实现提取节点</h4><p>节点接收当前状态，调用模型，再返回需要写回状态的字段。类型检查后，后续逻辑才能按 RefundRequest 读取属性。</p></div><pre><code><span class="tok-keyword">def</span> extract_request(state: RefundState) -&gt; dict:
+    request = extractor.invoke(state[<span class="tok-string">&quot;user_text&quot;</span>])
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(request, RefundRequest):
+        <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected RefundRequest, got {type(request).__name__}&quot;</span>)
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: request.order_id, <span class="tok-string">&quot;reason&quot;</span>: request.reason}</code></pre></div><div class="guide-step"><div><h4>04 · 把判断和动作分开</h4><p>先判断字段是否齐全：返回的 lookup / missing 是图中注册的节点名；缺信息节点只负责写入结果。</p></div><pre><code><span class="tok-keyword">def</span> route_request(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;missing&quot;</span>]:
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;order_id&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip() <span class="tok-keyword">or</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;reason&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip():
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;missing&quot;</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+
+<span class="tok-keyword">def</span> missing_info(state: RefundState) -&gt; dict:
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;missing_info&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;请提供订单号和退款原因后重新申请。&quot;</span>}</code></pre></div><div class="guide-step"><div><h4>05 · 查订单并检查规则</h4><p>工具查本地订单，节点写入状态；确定性代码判断订单是否存在、已支付且未超过 30 天。模型不决定能否退款。</p></div><pre><code><span class="tok-keyword">@</span>tool
+<span class="tok-keyword">def</span> lookup_order(order_id: str) -&gt; Order | <span class="tok-keyword">None</span>:
+    <span class="tok-string">&quot;&quot;&quot;根据订单号查询模拟订单，不存在返回 None。&quot;&quot;&quot;</span>
+    <span class="tok-comment"># 日期相对今天构造，让练习不因日历变化而过期。</span>
+    today = date.today()
+    orders: dict[str, Order] = {
+        <span class="tok-string">&quot;A100&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;A100&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">199</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: today.isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">False</span>},
+        <span class="tok-string">&quot;B200&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;B200&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">89</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refunded&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: today.isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">False</span>},
+        <span class="tok-string">&quot;C300&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;C300&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">50</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: (today - timedelta(days=<span class="tok-number">31</span>)).isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">False</span>},
+        <span class="tok-string">&quot;D400&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;D400&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">99</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>, <span class="tok-string">&quot;paid_on&quot;</span>: today.isoformat(), <span class="tok-string">&quot;simulate_failure&quot;</span>: <span class="tok-keyword">True</span>},
+    }
+    <span class="tok-keyword">return</span> orders.get(order_id.strip().upper())
+
+<span class="tok-keyword">def</span> check_order(state: RefundState) -&gt; dict:
+    order_id = state.get(<span class="tok-string">&quot;order_id&quot;</span>)
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> order_id:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;order_id is required&quot;</span>)
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order&quot;</span>: lookup_order.invoke({<span class="tok-string">&quot;order_id&quot;</span>: order_id})}
+
+<span class="tok-keyword">def</span> check_policy(state: RefundState) -&gt; dict:
+    <span class="tok-string">&quot;&quot;&quot;示例规则：订单已支付，且支付日期距今天不超过 30 天。&quot;&quot;&quot;</span>
+    order = state.get(<span class="tok-string">&quot;order&quot;</span>)
+    <span class="tok-keyword">if</span> order <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;order_not_found&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;订单不存在。&quot;</span>}
+    <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;status&quot;</span>] != <span class="tok-string">&quot;paid&quot;</span>:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;not_eligible&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;订单未支付或已退款。&quot;</span>}
+    paid_on = date.fromisoformat(order[<span class="tok-string">&quot;paid_on&quot;</span>])
+    age = (date.today() - paid_on).days
+    <span class="tok-keyword">if</span> age &lt; <span class="tok-number">0</span> <span class="tok-keyword">or</span> age &gt; <span class="tok-number">30</span>:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;not_eligible&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;订单支付日期异常或已超过 30 天退款期限。&quot;</span>}
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;eligible&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;符合示例退款规则，等待人工审批。&quot;</span>}
+
+<span class="tok-keyword">def</span> route_policy(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>]:
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;approval&quot;</span> <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;status&quot;</span>) == <span class="tok-string">&quot;eligible&quot;</span> <span class="tok-keyword">else</span> <span class="tok-string">&quot;finish&quot;</span></code></pre></div><div class="guide-step"><div><h4>06 · 设计人工介入</h4><p>对符合规则的订单暂停；恢复时校验布尔值，再用 Command 决定执行模拟退款还是拒绝。批准不代表执行成功。</p></div><pre><code><span class="tok-keyword">def</span> approve_refund(state: RefundState) -&gt; Command[Literal[<span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>]]:
+    decision = interrupt({
+        <span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;是否批准退款？&quot;</span>,
+        <span class="tok-string">&quot;order&quot;</span>: state.get(<span class="tok-string">&quot;order&quot;</span>),
+        <span class="tok-string">&quot;reason&quot;</span>: state.get(<span class="tok-string">&quot;reason&quot;</span>),
+    })
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(decision, bool):
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;审批结果必须是 True 或 False&quot;</span>)
+    <span class="tok-keyword">return</span> Command(goto=<span class="tok-string">&quot;refund&quot;</span> <span class="tok-keyword">if</span> decision <span class="tok-keyword">else</span> <span class="tok-string">&quot;reject&quot;</span>)
+
+<span class="tok-keyword">def</span> refund(state: RefundState) -&gt; dict:
+    <span class="tok-comment"># 仅模拟执行结果，批准并不等于退款成功。</span>
+    order = state.get(<span class="tok-string">&quot;order&quot;</span>)
+    <span class="tok-keyword">if</span> order <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;order is required&quot;</span>)
+    <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;simulate_failure&quot;</span>]:
+        <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_failed&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;审批通过，但模拟退款失败。&quot;</span>}
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_succeeded&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">f&quot;模拟退款成功：{order[&#x27;order_id&#x27;]}&quot;</span>}
+
+<span class="tok-keyword">def</span> reject(state: RefundState) -&gt; dict:
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;rejected&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;退款申请未获批准。&quot;</span>}</code></pre></div><div class="guide-step"><div><h4>07 · 将节点连成图</h4><p>先注册节点，再建立入口、条件路由和结束边。approval 通过 Command 动态跳转，所以这里不添加它到 refund / reject 的普通边。</p></div><pre><code>builder = StateGraph(RefundState)
+builder.add_node(<span class="tok-string">&quot;extract&quot;</span>, extract_request)
+builder.add_node(<span class="tok-string">&quot;missing&quot;</span>, missing_info)
+builder.add_node(<span class="tok-string">&quot;lookup&quot;</span>, check_order)
+builder.add_node(<span class="tok-string">&quot;policy&quot;</span>, check_policy)
+builder.add_node(<span class="tok-string">&quot;approval&quot;</span>, approve_refund)
+builder.add_node(<span class="tok-string">&quot;refund&quot;</span>, refund)
+builder.add_node(<span class="tok-string">&quot;reject&quot;</span>, reject)
+builder.add_edge(START, <span class="tok-string">&quot;extract&quot;</span>)
+builder.add_conditional_edges(<span class="tok-string">&quot;extract&quot;</span>, route_request)
+builder.add_edge(<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;policy&quot;</span>)
+builder.add_conditional_edges(<span class="tok-string">&quot;policy&quot;</span>, route_policy, {<span class="tok-string">&quot;approval&quot;</span>: <span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>: END})
+<span class="tok-keyword">for</span> node <span class="tok-keyword">in</span> (<span class="tok-string">&quot;missing&quot;</span>, <span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>):
+    builder.add_edge(node, END)
+app = builder.compile(checkpointer=InMemorySaver())</code></pre></div><div class="guide-step"><div><h4>08 · 调用、暂停和恢复</h4><p>创建线程、传入用户输入；出现中断就读取审批信息，再使用同一个 config 恢复。节点恢复时会从头运行到 interrupt，中断之前的副作用必须可安全重试。</p></div><pre><code><span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: str(uuid4())}}
+    text = input(<span class="tok-string">&quot;退款申请：&quot;</span>).strip()
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> text:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;请输入退款申请&quot;</span>)
+
+    result = app.invoke({<span class="tok-string">&quot;user_text&quot;</span>: text}, config=config)
+    <span class="tok-keyword">if</span> result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>):
+        print(<span class="tok-string">&quot;待审批：&quot;</span>, result[<span class="tok-string">&quot;__interrupt__&quot;</span>][<span class="tok-number">0</span>].value)
+        <span class="tok-keyword">while</span> <span class="tok-keyword">True</span>:
+            answer = input(<span class="tok-string">&quot;批准退款？输入 y 或 n：&quot;</span>).strip().lower()
+            <span class="tok-keyword">if</span> answer <span class="tok-keyword">in</span> (<span class="tok-string">&quot;y&quot;</span>, <span class="tok-string">&quot;n&quot;</span>):
+                <span class="tok-keyword">break</span>
+            print(<span class="tok-string">&quot;请输入 y 或 n。&quot;</span>)
+        result = app.invoke(Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>)), config=config)
+    print(<span class="tok-string">&quot;状态：&quot;</span>, result[<span class="tok-string">&quot;status&quot;</span>])
+    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])</code></pre></div><p><strong>最后验证：</strong>A100 分别批准和拒绝；B200 已退款，C300 超期，D400 模拟退款失败；另测未知订单和缺信息。模型可能提取错误，观察状态及实际路径。</p></div><!-- guide:end -->
+<p class="run">运行：<code>python code/s09_refund_agent.py</code> · 需要模型支持结构化输出。输入「订单 A100 商品损坏，申请退款」，审批输入 y 或 n。B200 为已退款、C300 超期、D400 模拟退款失败；也可测试未知订单及缺少订单号。</p><p class="run">示例不会实际退款；缺信息时结束本次申请，不会自动追问。内存状态不跨进程保存；本例没有订单归属认证、实际支付、持久化、幂等或异常恢复，不可直接用于生产。审批等待期间状态可能发生变化，真实系统必须在执行前重新校验并处理并发。</p></section>
+<div class="end">遇到问题时：先检查环境和 <a href="../code/s01_probe.py">连接探针</a>，再检查模型是否支持结构化输出或工具调用。完整代码在 <code>code/</code>；浏览器可能下载源码，也可以用编辑器打开。</div>
+</main></body></html>

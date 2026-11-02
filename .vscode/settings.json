@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "C:\\Users\\76335\\.conda\\envs\\LC\\python.exe",
+  "python.pythonPath": "C:\\Users\\76335\\.conda\\envs\\LC\\python.exe",
+  "python.languageServer": "None",
+  "cursorpyright.analysis.extraPaths": [
+    "C:\\Users\\76335\\.conda\\envs\\LC\\Lib\\site-packages"
+  ]
+}

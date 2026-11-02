@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LangChain 完整组合实例</title>
+<style>
+  :root {
+    --bg: #fafafa; --panel: #fff; --ink: #171717; --muted: #737373;
+    --line: #ececec; --accent: #2563eb; --soft: #eff6ff; --green: #047857;
+    --code: #0b1220; --code-ink: #e5e7eb;
+    font-family: "PingFang SC", "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; }
+  header { padding: 18px 22px 10px; }
+  header h1 { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+  header p { margin-top: 4px; font-size: 13px; color: var(--muted); max-width: 56em; line-height: 1.5; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 12px; padding: 8px 16px 18px;
+    height: calc(100vh - 78px); min-height: 560px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  .panel-hd {
+    padding: 11px 14px; border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--muted); font-weight: 600;
+  }
+  .nav { flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .nav button {
+    text-align: left; border: 1px solid var(--line); background: #fff;
+    border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink);
+  }
+  .nav button:hover { border-color: #bfdbfe; background: #f8fbff; }
+  .nav button.active { border-color: var(--accent); background: var(--soft); }
+  .nav .n { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .nav .t { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 650; }
+  .nav .s { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+  .main { flex: 1; overflow: auto; padding: 16px 18px 22px; }
+  .combo {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px;
+  }
+  .combo span {
+    font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--soft); color: var(--accent);
+  }
+  .main h2 { font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
+  .lead { margin-top: 6px; font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .flow {
+    margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: #f5f5f5;
+    font-size: 12.5px; line-height: 1.7; color: #404040;
+  }
+  .flow b { color: var(--ink); }
+  .bridge {
+    border-left: 3px solid #6ee7b7; padding-left: 10px;
+    font-size: 12.5px; color: #404040; margin-bottom: 12px; line-height: 1.5;
+  }
+  .bridge strong { color: var(--green); }
+  .toolbar {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+  }
+  .toolbar button {
+    font-size: 12px; font-weight: 600; border: 1px solid var(--line);
+    background: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+  .toolbar button:hover { border-color: #93c5fd; }
+  .toolbar .ok { color: var(--green); font-size: 12px; opacity: 0; transition: opacity .2s; }
+  .toolbar .ok.show { opacity: 1; }
+  pre {
+    background: var(--code); color: var(--code-ink); border-radius: 12px;
+    padding: 14px 16px; overflow: auto; font-size: 12.2px; line-height: 1.55;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    white-space: pre;
+  }
+  .run {
+    margin-top: 12px; font-size: 12.5px; color: var(--muted); line-height: 1.55;
+  }
+  .run code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    background: #f0f0f0; padding: 1px 5px; border-radius: 4px; color: #111;
+  }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    .nav { flex-direction: row; flex-wrap: wrap; }
+    .nav button { flex: 1 1 160px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LangChain 完整组合实例</h1>
+  <p>每个例子都是「多个概念拼在一起」的可运行脚本。含中断 / 回退（实例 F）。先看数据流，再复制到本地跑（需 <code style="font-size:12px;background:#f0f0f0;padding:1px 5px;border-radius:4px">OPENAI_API_KEY</code>）。</p>
+</header>
+
+<div class="layout">
+  <aside class="panel">
+    <div class="panel-hd">实例列表</div>
+    <div class="nav" id="nav"></div>
+  </aside>
+  <section class="panel">
+    <div class="panel-hd">完整代码</div>
+    <div class="main" id="main"></div>
+  </section>
+</div>
+
+<script>
+const RECIPES = [
+  {
+    id: "r1",
+    n: "实例 A",
+    title: "结构化问答",
+    sub: "Prompt + Model + Parser",
+    lead: "一次调用的完整形态：模板造消息，模型回答，直接收成 Pydantic 对象。",
+    combo: ["Prompt", "Chat Model", "Structured Output"],
+    flow: "<b>输入</b> 问题字典 → <b>Prompt</b> 填模板 → <b>Model</b>（带 structured_output）→ <b>Brief 对象</b>",
+    bridge: "≈ Eino：ChatTemplate → ChatModel → 按 schema 解析。",
+    run: "保存为 <code>a_qa.py</code> 后：<code>pip install -U langchain-openai pydantic</code>，再 <code>python a_qa.py</code>",
+    code: `"""实例 A：Prompt + Model + Structured Output
+概念组合：一次模型调用的最小完整闭环
+"""
+from pydantic import BaseModel, Field
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+class Brief(BaseModel):
+    title: str = Field(description="短标题")
+    points: list[str] = Field(description="恰好 3 个要点")
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是技术助教。用中文回答，要点要具体。"),
+    ("human", "请介绍：{topic}"),
+])
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).with_structured_output(Brief)
+
+# Prompt | Model  （Parser 已熔进 with_structured_output）
+chain = prompt | llm
+
+result: Brief = chain.invoke({"topic": "LCEL 是什么"})
+print(result.title)
+for i, p in enumerate(result.points, 1):
+    print(f"{i}. {p}")`
+  },
+  {
+    id: "r2",
+    n: "实例 B",
+    title: "RAG 全流程",
+    sub: "切分 → Embed → VectorStore → 检索 → 生成",
+    lead: "按官方 knowledge-base 教程：RecursiveCharacterTextSplitter + OpenAIEmbeddings + InMemoryVectorStore + as_retriever，再拼进 Prompt 生成。",
+    combo: ["Split", "Embeddings", "VectorStore", "Retriever", "Prompt", "Chat Model"],
+    flow: "<b>离线索引</b> 文档→切分→向量化→入库　|　<b>在线问答</b> 问题→检索→塞进 Prompt→Model→答案",
+    bridge: "官方文档：https://docs.langchain.com/oss/python/langchain/knowledge-base",
+    run: "<code>pip install -U langchain-openai langchain-core langchain-text-splitters</code>。生产把 InMemory 换成 Chroma/pgvector。",
+    code: `"""实例 B：官方同款 RAG 流水线
+来源结构对齐 docs.langchain.com/oss/python/langchain/knowledge-base
+切分 → Embeddings → VectorStore → Retriever → Prompt | LLM
+"""
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# --- 1) 文档（官方示例可从 PDF load；这里用内联 Document）---
+docs = [
+    Document(
+        page_content="LCEL 用 | 把 Runnable 串成管道，支持 invoke/stream/batch。",
+        metadata={"source": "lc-intro"},
+    ),
+    Document(
+        page_content="LangGraph 用 StateGraph 管理多步、分支与回环。",
+        metadata={"source": "lc-intro"},
+    ),
+    Document(
+        page_content="Agent 在模型与工具之间循环，直到给出最终答案。",
+        metadata={"source": "lc-intro"},
+    ),
+]
+
+# --- 2) 切分（官方推荐）---
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000, chunk_overlap=200, add_start_index=True
+)
+all_splits = text_splitter.split_documents(docs)
+print("chunks:", len(all_splits))
+
+# --- 3) 向量化模型 ---
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+
+# --- 4) 入库（官方 demo：InMemory；生产换 Chroma / pgvector）---
+vector_store = InMemoryVectorStore(embeddings)
+vector_store.add_documents(documents=all_splits)
+
+# --- 5) 检索 ---
+retriever = vector_store.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 2},
+)
+
+# --- 6) 塞进上下文 + 生成 ---
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "只根据资料回答；资料不足就说不知道。"),
+    ("human", "资料：\\n{context}\\n\\n问题：{question}"),
+])
+
+def format_docs(docs: list[Document]) -> str:
+    return "\\n".join(f"- {d.page_content}" for d in docs)
+
+rag = (
+    {
+        "context": retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | prompt
+    | ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    | StrOutputParser()
+)
+
+print(rag.invoke("LCEL 怎么串组件？"))
+print("---")
+print(rag.invoke("Agent 和 LCEL 有啥差别？"))`
+  },
+  {
+    id: "r3",
+    n: "实例 C",
+    title: "带工具的 Agent",
+    sub: "Model + Tools + 循环",
+    lead: "模型自己决定何时算数、何时查「假天气」。完整展示 bind + 执行循环。",
+    combo: ["Chat Model", "Tools", "Agent 循环"],
+    flow: "<b>用户消息</b> → Model 决定 tool_calls → <b>执行 Tools</b> → 结果回灌 Messages → 再推理 → 最终回复",
+    bridge: "≈ Eino：ToolCallingChatModel + Tools 循环。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core</code>。用的是 LangGraph 预置 ReAct Agent。",
+    code: `"""实例 C：Model + Tools + Agent 循环
+概念组合：工具调用闭环（create_react_agent）
+"""
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+
+@tool
+def multiply(a: int, b: int) -> int:
+    """计算两数乘积。"""
+    return a * b
+
+@tool
+def fake_weather(city: str) -> str:
+    """查询某城市天气（演示用假数据）。"""
+    data = {"成都": "阴，18°C", "上海": "小雨，22°C"}
+    return data.get(city, f"{city}：晴，25°C")
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+agent = create_react_agent(llm, tools=[multiply, fake_weather])
+
+def ask(text: str) -> None:
+    result = agent.invoke({"messages": [("user", text)]})
+    print("Q:", text)
+    print("A:", result["messages"][-1].content)
+    print("---")
+
+ask("3 乘 15 等于多少？")
+ask("成都今天天气怎么样？")
+ask("先查上海天气，再把温度数字 22 乘以 2，告诉我结果")`
+  },
+  {
+    id: "r4",
+    n: "实例 D",
+    title: "LangGraph 客服小图",
+    sub: "State + 条件边 + Tools + Checkpoint",
+    lead: "把 Agent 拆成你能看懂的图：分类 → 答疑/工具 → 结束；同 thread 可续聊。",
+    combo: ["LangGraph", "Tools", "条件边", "Checkpointer"],
+    flow: "<b>START</b> → classify（是否要工具）→ <b>条件边</b> → tool_node 或 answer → END；状态由 Checkpointer 按 thread 保存",
+    bridge: "≈ Eino Graph：节点函数 + 边 + checkpoint。这是你迁移时最该练的一例。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core</code>。注意两次 invoke 用同一 <code>thread_id</code>。",
+    code: `"""实例 D：LangGraph = State + 条件边 + Tool + Checkpoint
+概念组合：有状态编排（从 Eino Graph 对照最直接）
+"""
+from typing import Annotated, Literal, TypedDict
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode
+
+@tool
+def order_status(order_id: str) -> str:
+    """根据订单号查询物流状态。"""
+    db = {"A100": "已发货，预计明天到", "B200": "运输中，今日达"}
+    return db.get(order_id, f"未找到订单 {order_id}")
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+tools = [order_status]
+llm_tools = llm.bind_tools(tools)
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+
+def assistant(state: State):
+    """节点：调用（可能带 tool_calls 的）模型。"""
+    msgs = [
+        SystemMessage(content="你是电商客服。查订单请调用 order_status；其它问题直接答。"),
+        *state["messages"],
+    ]
+    return {"messages": [llm_tools.invoke(msgs)]}
+
+def need_tools(state: State) -> Literal["tools", "end"]:
+    last = state["messages"][-1]
+    if isinstance(last, AIMessage) and last.tool_calls:
+        return "tools"
+    return "end"
+
+graph = StateGraph(State)
+graph.add_node("assistant", assistant)
+graph.add_node("tools", ToolNode(tools))
+graph.add_edge(START, "assistant")
+graph.add_conditional_edges("assistant", need_tools, {"tools": "tools", "end": END})
+graph.add_edge("tools", "assistant")  # 工具结果回来继续想
+
+app = graph.compile(checkpointer=MemorySaver())
+cfg = {"configurable": {"thread_id": "user-demo"}}
+
+def chat(text: str) -> None:
+    out = app.invoke({"messages": [HumanMessage(content=text)]}, cfg)
+    print("U:", text)
+    print("B:", out["messages"][-1].content)
+    print("---")
+
+chat("你好")
+chat("帮我查一下订单 A100")
+chat("刚才那个订单什么状态？")  # 同 thread，靠 checkpoint 续得上`
+  },
+  {
+    id: "r5",
+    n: "实例 E",
+    title: "RAG + Agent 合体",
+    sub: "Retriever 封成 Tool，再进 Agent",
+    lead: "检索不再死挂在链前，而变成模型可选用的工具——这是生产里常见组合。",
+    combo: ["Retriever", "Tools", "Agent", "Prompt(system)"],
+    flow: "<b>用户提问</b> → Agent 决定是否 <b>search_docs</b> → 用检索结果再答",
+    bridge: "Eino 同理：Retriever 包成 Tool，交给 Graph/Agent。",
+    run: "依赖同实例 C。适合作为「入门作品集」的第二小项。",
+    code: `"""实例 E：Retriever 作为 Tool + Agent
+概念组合：RAG 能力交给模型按需调用
+"""
+from langchain_core.documents import Document
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.vectorstores import InMemoryVectorStore
+from langgraph.prebuilt import create_react_agent
+
+docs = [
+    Document(page_content="退货政策：签收 7 天内可无理由退货，电点未拆封。"),
+    Document(page_content="运费：满 99 包邮；偏远地区补收 8 元。"),
+    Document(page_content="发票：订单页申请电子普票，1 个工作日内发送。"),
+]
+
+store = InMemoryVectorStore.from_documents(docs, OpenAIEmbeddings())
+retriever = store.as_retriever(search_kwargs={"k": 2})
+
+@tool
+def search_docs(query: str) -> str:
+    """在公司政策文档里搜索相关段落。"""
+    hits = retriever.invoke(query)
+    if not hits:
+        return "未找到相关资料"
+    return "\\n".join(f"- {d.page_content}" for d in hits)
+
+@tool
+def escalate(reason: str) -> str:
+    """ Escalation：转人工时记录原因。"""
+    return f"已创建工单，原因：{reason}"
+
+agent = create_react_agent(
+    ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    tools=[search_docs, escalate],
+    prompt="你是售后助手。先 search_docs；资料不够再 escalate。",
+)
+
+def ask(q: str) -> None:
+    res = agent.invoke({"messages": [("user", q)]})
+    print("Q:", q)
+    print("A:", res["messages"][-1].content)
+    print("---")
+
+ask("买完 3 天想退，可以吗？")
+ask("我要开票怎么弄？")
+ask("我想投诉快递员态度，政策里没有写")`
+  },
+  {
+    id: "r6",
+    n: "实例 F",
+    title: "中断 + 回退",
+    sub: "interrupt / resume / 时间旅行",
+    lead: "生产 Agent 两件关键能力：跑到关键步先停下来等人确认（中断）；做错了回到某个 checkpoint 再叉出去（回退）。",
+    combo: ["LangGraph", "Checkpointer", "interrupt", "时间旅行"],
+    flow: "<b>跑图</b> → 碰到 <b>interrupt()</b> 暂停并返回挂起状态 → 人确认后 <b>Command(resume=…)</b> 继续；若要反悔 → 用 <b>get_state_history</b> 选旧 checkpoint 再 invoke（时间旅行）",
+    bridge: "≈ Eino：Graph 中断 / 人工节点 + checkpoint 回放。没有 Checkpointer，中断和回退都落不住。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core</code>。本例为了好读，审批节点不调大模型。",
+    code: `"""实例 F：中断（HITL）+ 回退（时间旅行）
+概念组合：Checkpointer 上的 interrupt / resume / history
+"""
+from typing import Annotated, TypedDict
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.types import Command, interrupt
+
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+    draft: str
+    approved: bool
+
+
+def draft_reply(state: State):
+    """节点 1：生成待发送草稿（演示里写死，真实项目可换 LLM）。"""
+    user = next(
+        (m.content for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+        "",
+    )
+    draft = f"【待发送】已收到：「{user}」。我们会在 1 个工作日内处理。"
+    return {
+        "draft": draft,
+        "messages": [AIMessage(content=f"已生成草稿：{draft}")],
+    }
+
+
+def human_approve(state: State):
+    """节点 2：中断，把草稿抛给外部；resume 的值写回状态。"""
+    decision = interrupt({
+        "action": "approve_send",
+        "draft": state["draft"],
+        "hint": "resume 时传入 True 发送 / False 拒绝",
+    })
+    # decision = Command(resume=...) 里带来的值
+    ok = bool(decision)
+    msg = "已发送。" if ok else "已取消发送。"
+    return {
+        "approved": ok,
+        "messages": [AIMessage(content=msg)],
+    }
+
+
+g = StateGraph(State)
+g.add_node("draft", draft_reply)
+g.add_node("approve", human_approve)
+g.add_edge(START, "draft")
+g.add_edge("draft", "approve")
+g.add_edge("approve", END)
+
+app = g.compile(checkpointer=MemorySaver())
+cfg = {"configurable": {"thread_id": "hitl-1"}}
+
+
+# ---------- 1) 跑到中断 ----------
+paused = app.invoke(
+    {"messages": [HumanMessage(content="我的退货到哪了？")], "draft": "", "approved": False},
+    cfg,
+)
+print("第一次返回（通常停在 interrupt）:")
+print("  draft =", paused.get("draft"))
+print("  最后消息 =", paused["messages"][-1].content)
+
+# 查看是否挂起
+snap = app.get_state(cfg)
+print("  next nodes =", snap.next)  # ('approve',) 一类，表示还没走完
+
+
+# ---------- 2) 人确认后继续（中断恢复）----------
+# 假设人点了「同意发送」
+resumed = app.invoke(Command(resume=True), cfg)
+print("\\n恢复后:")
+print("  approved =", resumed["approved"])
+print("  最后消息 =", resumed["messages"][-1].content)
+
+
+# ---------- 3) 回退：时间旅行到「审批前」再改主意 ----------
+history = list(app.get_state_history(cfg))
+# history[0] 最新；越往后越旧。找到还没 approve 完、仍有 draft 的检查点
+target = None
+for h in history:
+    if h.next == ("approve",) or (h.values.get("draft") and not h.values.get("approved")):
+        target = h
+        break
+if target is None and len(history) >= 2:
+    target = history[-1]  # 退化：用最早一帧演示
+
+print("\\n可选历史帧数:", len(history))
+if target:
+    past_cfg = target.config  # 含 checkpoint_id
+    print("回退到 checkpoint:", past_cfg["configurable"].get("checkpoint_id"))
+    # 从旧帧继续，这次拒绝发送 → 形成新分支
+    branched = app.invoke(Command(resume=False), past_cfg)
+    print("回退后另选拒绝:")
+    print("  approved =", branched["approved"])
+    print("  最后消息 =", branched["messages"][-1].content)
+
+print("""
+要点：
+1. interrupt() 必须配合 checkpointer，否则无处挂起
+2. 恢复用 Command(resume=值)，值会成为 interrupt() 的返回值
+3. get_state_history + 带 checkpoint_id 的 config = 回退 / 分支
+""")`
+  },
+];
+
+const nav = document.getElementById("nav");
+const main = document.getElementById("main");
+
+function esc(s) {
+  return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+function show(id) {
+  const r = RECIPES.find(x => x.id === id);
+  nav.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.id === id));
+  main.innerHTML = `
+    <div class="n" style="font-size:11px;font-weight:700;color:var(--accent)">${r.n}</div>
+    <h2>${r.title}</h2>
+    <p class="lead">${r.lead}</p>
+    <div class="combo">${r.combo.map(c => `<span>${c}</span>`).join("")}</div>
+    <div class="flow">${r.flow}</div>
+    <div class="bridge">${r.bridge}</div>
+    <div class="toolbar">
+      <button type="button" id="copy">复制代码</button>
+      <span class="ok" id="ok">已复制</span>
+    </div>
+    <pre id="code">${esc(r.code)}</pre>
+    <p class="run">${r.run}</p>
+  `;
+  document.getElementById("copy").onclick = async () => {
+    await navigator.clipboard.writeText(r.code);
+    const ok = document.getElementById("ok");
+    ok.classList.add("show");
+    setTimeout(() => ok.classList.remove("show"), 1200);
+  };
+}
+
+nav.innerHTML = RECIPES.map(r => `
+  <button type="button" data-id="${r.id}">
+    <span class="n">${r.n}</span>
+    <span class="t">${r.title}</span>
+    <span class="s">${r.sub}</span>
+  </button>
+`).join("");
+nav.querySelectorAll("button").forEach(b => b.onclick = () => show(b.dataset.id));
+show("r1");
+</script>
+</body>
+</html>

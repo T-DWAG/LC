@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LangGraph 完整组合实例</title>
+<style>
+  :root {
+    --bg: #fafafa; --panel: #fff; --ink: #171717; --muted: #737373;
+    --line: #ececec; --accent: #2563eb; --soft: #eff6ff; --green: #047857;
+    --code: #0b1220; --code-ink: #e5e7eb;
+    font-family: "PingFang SC", "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; }
+  header { padding: 18px 22px 10px; }
+  header h1 { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+  header p { margin-top: 4px; font-size: 13px; color: var(--muted); max-width: 56em; line-height: 1.5; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 12px; padding: 8px 16px 18px;
+    height: calc(100vh - 78px); min-height: 560px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  .panel-hd {
+    padding: 11px 14px; border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--muted); font-weight: 600;
+  }
+  .nav { flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .nav button {
+    text-align: left; border: 1px solid var(--line); background: #fff;
+    border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink);
+  }
+  .nav button:hover { border-color: #bfdbfe; background: #f8fbff; }
+  .nav button.active { border-color: var(--accent); background: var(--soft); }
+  .nav .n { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .nav .t { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 650; }
+  .nav .s { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+  .main { flex: 1; overflow: auto; padding: 16px 18px 22px; }
+  .combo {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px;
+  }
+  .combo span {
+    font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--soft); color: var(--accent);
+  }
+  .main h2 { font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
+  .lead { margin-top: 6px; font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .flow {
+    margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: #f5f5f5;
+    font-size: 12.5px; line-height: 1.7; color: #404040;
+  }
+  .flow b { color: var(--ink); }
+  .bridge {
+    border-left: 3px solid #6ee7b7; padding-left: 10px;
+    font-size: 12.5px; color: #404040; margin-bottom: 12px; line-height: 1.5;
+  }
+  .bridge strong { color: var(--green); }
+  .toolbar {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+  }
+  .toolbar button {
+    font-size: 12px; font-weight: 600; border: 1px solid var(--line);
+    background: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+  .toolbar button:hover { border-color: #93c5fd; }
+  .toolbar .ok { color: var(--green); font-size: 12px; opacity: 0; transition: opacity .2s; }
+  .toolbar .ok.show { opacity: 1; }
+  pre {
+    background: var(--code); color: var(--code-ink); border-radius: 12px;
+    padding: 14px 16px; overflow: auto; font-size: 12.2px; line-height: 1.55;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    white-space: pre;
+  }
+  .run {
+    margin-top: 12px; font-size: 12.5px; color: var(--muted); line-height: 1.55;
+  }
+  .run code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    background: #f0f0f0; padding: 1px 5px; border-radius: 4px; color: #111;
+  }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    .nav { flex-direction: row; flex-wrap: wrap; }
+    .nav button { flex: 1 1 160px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LangGraph 完整组合实例</h1>
+  <p>每个例子都是可运行脚本，优先对齐官方 Graph API / interrupt / persistence / time-travel / stores。需 <code style="font-size:12px;background:#f0f0f0;padding:1px 5px;border-radius:4px">OPENAI_API_KEY</code> 的已标注（A/D/E/G 可不需要）。</p>
+</header>
+
+<div class="layout">
+  <aside class="panel">
+    <div class="panel-hd">实例列表</div>
+    <div class="nav" id="nav"></div>
+  </aside>
+  <section class="panel">
+    <div class="panel-hd">完整代码</div>
+    <div class="main" id="main"></div>
+  </section>
+</div>
+
+<script>
+const RECIPES = [
+  {
+    id: "r1",
+    n: "实例 A",
+    title: "最小顺序图",
+    sub: "State + 3 节点顺序（无 LLM）",
+    lead: "对齐官方 use-graph-api / time-travel 的顺序思路：纯函数节点串起来，先看懂 State 怎么流动。",
+    bridge: "<strong>≈ Eino：</strong>最小 Graph：三个 Lambda 节点 + 边。",
+    run: "保存为 <code>a_sequence.py</code>：<code>pip install -U langgraph</code>，再 <code>python a_sequence.py</code>（无需 API Key）。",
+    flow: "<b>START</b> → generate_topic → write_joke → polish → <b>END</b>；全程不调模型，只看状态合并。",
+    combo: ["State", "add_node", "add_edge", "START/END"],
+    code: `"""实例 A：最小顺序图（无 LLM）
+对齐：docs.langchain.com/oss/python/langgraph/use-graph-api 顺序图思路
+"""
+from typing_extensions import TypedDict, NotRequired
+from langgraph.graph import StateGraph, START, END
+
+
+class State(TypedDict):
+    topic: NotRequired[str]
+    joke: NotRequired[str]
+    polished: NotRequired[str]
+
+
+def generate_topic(state: State):
+    return {"topic": "socks in the dryer"}
+
+
+def write_joke(state: State):
+    return {"joke": f"Why do {state['topic']} disappear? They elope!"}
+
+
+def polish(state: State):
+    return {"polished": state["joke"].upper()}
+
+
+graph = (
+    StateGraph(State)
+    .add_node("generate_topic", generate_topic)
+    .add_node("write_joke", write_joke)
+    .add_node("polish", polish)
+    .add_edge(START, "generate_topic")
+    .add_edge("generate_topic", "write_joke")
+    .add_edge("write_joke", "polish")
+    .add_edge("polish", END)
+    .compile()
+)
+
+print(graph.invoke({}))
+`,
+  },
+  {
+    id: "r2",
+    n: "实例 B",
+    title: "官方计算器 Agent",
+    sub: "Graph API：llm_call ⇄ tool_node",
+    lead: "完整对齐官方 quickstart Graph API：add/multiply/divide、MessagesState、should_continue；模型改为 ChatOpenAI。",
+    bridge: "官方：https://docs.langchain.com/oss/python/langgraph/quickstart （Anthropic 换成 OpenAI）。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core</code>。需 <code>OPENAI_API_KEY</code>。",
+    flow: "<b>START</b> → llm_call → <b>should_continue</b> → tool_node → llm_call … → END",
+    combo: ["Tools", "bind_tools", "条件边", "StateGraph"],
+    code: `"""实例 B：官方 Graph API 计算器 Agent
+来源结构对齐 docs.langchain.com/oss/python/langgraph/quickstart
+模型：ChatOpenAI(gpt-4o-mini)
+"""
+from typing import Literal
+import operator
+from typing_extensions import TypedDict, Annotated
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+from langchain.messages import (
+    AnyMessage, SystemMessage, HumanMessage, ToolMessage,
+)
+from langgraph.graph import StateGraph, START, END
+
+
+@tool
+def multiply(a: int, b: int) -> int:
+    """Multiply \`a\` and \`b\`."""
+    return a * b
+
+
+@tool
+def add(a: int, b: int) -> int:
+    """Adds \`a\` and \`b\`."""
+    return a + b
+
+
+@tool
+def divide(a: int, b: int) -> float:
+    """Divide \`a\` and \`b\`."""
+    return a / b
+
+
+tools = [add, multiply, divide]
+tools_by_name = {t.name: t for t in tools}
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+model_with_tools = model.bind_tools(tools)
+
+
+class MessagesState(TypedDict):
+    messages: Annotated[list[AnyMessage], operator.add]
+    llm_calls: int
+
+
+def llm_call(state: MessagesState):
+    """LLM decides whether to call a tool or not"""
+    return {
+        "messages": [
+            model_with_tools.invoke(
+                [
+                    SystemMessage(
+                        content="You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+                    )
+                ]
+                + state["messages"]
+            )
+        ],
+        "llm_calls": state.get("llm_calls", 0) + 1,
+    }
+
+
+def tool_node(state: MessagesState):
+    """Performs the tool call"""
+    result = []
+    for tool_call in state["messages"][-1].tool_calls:
+        t = tools_by_name[tool_call["name"]]
+        observation = t.invoke(tool_call["args"])
+        result.append(
+            ToolMessage(content=str(observation), tool_call_id=tool_call["id"])
+        )
+    return {"messages": result}
+
+
+def should_continue(state: MessagesState) -> Literal["tool_node", "__end__"]:
+    last_message = state["messages"][-1]
+    if last_message.tool_calls:
+        return "tool_node"
+    return END
+
+
+agent_builder = StateGraph(MessagesState)
+agent_builder.add_node("llm_call", llm_call)
+agent_builder.add_node("tool_node", tool_node)
+agent_builder.add_edge(START, "llm_call")
+agent_builder.add_conditional_edges(
+    "llm_call", should_continue, ["tool_node", END]
+)
+agent_builder.add_edge("tool_node", "llm_call")
+agent = agent_builder.compile()
+
+messages = [HumanMessage(content="Add 3 and 4. Then multiply the result by 2.")]
+out = agent.invoke({"messages": messages, "llm_calls": 0})
+for m in out["messages"]:
+    m.pretty_print()
+print("llm_calls:", out["llm_calls"])
+`,
+  },
+  {
+    id: "r3",
+    n: "实例 C",
+    title: "Checkpointer 续聊",
+    sub: "InMemorySaver + 同 thread_id 两轮",
+    lead: "手写小图 + InMemorySaver：同一 thread_id 第二次提问能接上第一次说过的名字。",
+    bridge: "官方 persistence：Checkpointer = 线程级短状态。≈ Eino Checkpoint。",
+    run: "<code>pip install -U langgraph langchain-openai</code>。两次 invoke 必须同一 <code>thread_id</code>。",
+    flow: "<b>compile(checkpointer=…)</b> → invoke(…, thread_id) → 再 invoke 同 thread → 模型看得到历史 messages",
+    combo: ["StateGraph", "InMemorySaver", "thread_id", "MessagesState"],
+    code: `"""实例 C：Checkpointer 续聊
+对齐：docs.langchain.com/oss/python/langgraph/persistence
+"""
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langchain_openai import ChatOpenAI
+from langchain.messages import HumanMessage, SystemMessage
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+
+def call_model(state: MessagesState):
+    msgs = [SystemMessage(content="用中文简短回答，记住用户说过的信息。")] + list(
+        state["messages"]
+    )
+    return {"messages": [llm.invoke(msgs)]}
+
+
+app = (
+    StateGraph(MessagesState)
+    .add_node("model", call_model)
+    .add_edge(START, "model")
+    .add_edge("model", END)
+    .compile(checkpointer=InMemorySaver())
+)
+
+cfg = {"configurable": {"thread_id": "chat-42"}}
+
+r1 = app.invoke({"messages": [HumanMessage(content="我叫阿旺，住在成都。")]}, cfg)
+print("1:", r1["messages"][-1].content)
+
+r2 = app.invoke({"messages": [HumanMessage(content="我叫什么？住哪？")]}, cfg)
+print("2:", r2["messages"][-1].content)
+`,
+  },
+  {
+    id: "r4",
+    n: "实例 D",
+    title: "中断审批 HITL",
+    sub: "interrupt + Command(resume) 批准/拒绝",
+    lead: "官方 approve/reject 模式：interrupt 抛出 question/details；resume True→proceed，False→cancel。用 invoke + __interrupt__ 好读。",
+    bridge: "官方 interrupts 页 Approve or reject。≈ Eino 人工节点。必须 checkpointer。",
+    run: "<code>pip install -U langgraph</code>。无需模型。生产可用 <code>stream_events</code> 看 <code>stream.interrupts</code>。",
+    flow: "<b>START</b> → approval(interrupt) → resume → proceed | cancel → END",
+    combo: ["interrupt", "Command", "InMemorySaver", "条件 goto"],
+    code: `"""实例 D：中断审批 HITL（官方 approve/reject）
+对齐：docs.langchain.com/oss/python/langgraph/interrupts
+用 invoke；中断载荷在 result["__interrupt__"]
+"""
+from typing import Literal, Optional, TypedDict
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
+
+
+class ApprovalState(TypedDict):
+    action_details: str
+    status: Optional[Literal["pending", "approved", "rejected"]]
+
+
+def approval_node(state: ApprovalState) -> Command[Literal["proceed", "cancel"]]:
+    decision = interrupt(
+        {
+            "question": "Approve this action?",
+            "details": state["action_details"],
+        }
+    )
+    return Command(goto="proceed" if decision else "cancel")
+
+
+def proceed_node(state: ApprovalState):
+    return {"status": "approved"}
+
+
+def cancel_node(state: ApprovalState):
+    return {"status": "rejected"}
+
+
+builder = StateGraph(ApprovalState)
+builder.add_node("approval", approval_node)
+builder.add_node("proceed", proceed_node)
+builder.add_node("cancel", cancel_node)
+builder.add_edge(START, "approval")
+builder.add_edge("proceed", END)
+builder.add_edge("cancel", END)
+graph = builder.compile(checkpointer=InMemorySaver())
+
+cfg = {"configurable": {"thread_id": "approval-123"}}
+paused = graph.invoke(
+    {"action_details": "Transfer $500", "status": "pending"},
+    cfg,
+)
+print("interrupt:", paused.get("__interrupt__"))
+
+approved = graph.invoke(Command(resume=True), cfg)
+print("after approve:", approved["status"])
+
+# 另开 thread 演示拒绝
+cfg2 = {"configurable": {"thread_id": "approval-456"}}
+graph.invoke({"action_details": "Delete DB", "status": "pending"}, cfg2)
+rejected = graph.invoke(Command(resume=False), cfg2)
+print("after reject:", rejected["status"])
+`,
+  },
+  {
+    id: "r5",
+    n: "实例 E",
+    title: "时间旅行",
+    sub: "history → replay / update_state fork",
+    lead: "官方 use-time-travel：跑完图后 get_state_history，invoke(None) 重放，update_state 改值再 fork。",
+    bridge: "官方：https://docs.langchain.com/oss/python/langgraph/use-time-travel 。含 interrupt 时重放会再次 pause。",
+    run: "<code>pip install -U langgraph</code>。无需 API Key。",
+    flow: "跑图 → 找 next==write_joke 的 checkpoint → <b>replay</b> 或 <b>fork(topic=chickens)</b> → 再 invoke(None)",
+    combo: ["InMemorySaver", "get_state_history", "update_state", "replay"],
+    code: `"""实例 E：时间旅行（replay + fork）
+对齐：docs.langchain.com/oss/python/langgraph/use-time-travel
+"""
+from typing_extensions import TypedDict, NotRequired
+from langgraph.graph import StateGraph, START
+from langgraph.checkpoint.memory import InMemorySaver
+
+
+class State(TypedDict):
+    topic: NotRequired[str]
+    joke: NotRequired[str]
+
+
+def generate_topic(state: State):
+    return {"topic": "socks in the dryer"}
+
+
+def write_joke(state: State):
+    return {"joke": f"Why do {state['topic']} disappear? They elope!"}
+
+
+checkpointer = InMemorySaver()
+graph = (
+    StateGraph(State)
+    .add_node("generate_topic", generate_topic)
+    .add_node("write_joke", write_joke)
+    .add_edge(START, "generate_topic")
+    .add_edge("generate_topic", "write_joke")
+    .compile(checkpointer=checkpointer)
+)
+
+cfg = {"configurable": {"thread_id": "tt-demo"}}
+result = graph.invoke({}, cfg)
+print("original:", result)
+
+history = list(graph.get_state_history(cfg))
+for s in history:
+    print(" next=", s.next, "id=", s.config["configurable"].get("checkpoint_id"))
+
+before_joke = next(s for s in history if s.next == ("write_joke",))
+
+# Replay：从 write_joke 前再执行（节点会重跑）
+replay_result = graph.invoke(None, before_joke.config)
+print("replay:", replay_result)
+
+# Fork：改 topic 再继续
+fork_config = graph.update_state(
+    before_joke.config,
+    values={"topic": "chickens"},
+)
+fork_result = graph.invoke(None, fork_config)
+print("fork:", fork_result)
+
+print("""
+注意：若图里有 interrupt()，时间旅行重放该节点时会再次挂起，
+需要新的 Command(resume=...) 才能继续。
+""")
+`,
+  },
+  {
+    id: "r6",
+    n: "实例 F",
+    title: "Store + Checkpointer",
+    sub: "跨 thread 记忆 vs 线程内状态",
+    lead: "compile 同时挂 InMemorySaver 与 InMemoryStore；节点 store.put / search；两个 thread_id 证明记忆跨对话。",
+    bridge: "官方 stores + persistence。Checkpointer=这场对话；Store=这个人。",
+    run: "<code>pip install -U langgraph</code>。演示用闭包注入 store（官方亦可用 Runtime）。",
+    flow: "thread-1 写入 (user_id, memories) → thread-2 同 namespace search 仍能读到",
+    combo: ["InMemoryStore", "InMemorySaver", "namespace", "put/search"],
+    code: `"""实例 F：Store（跨 thread）+ Checkpointer（线程内）
+对齐：docs.langchain.com/oss/python/langgraph/stores
+       docs.langchain.com/oss/python/langgraph/persistence
+"""
+from typing import Annotated
+from typing_extensions import TypedDict
+from uuid import uuid4
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.store.memory import InMemoryStore
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langchain.messages import AIMessage, HumanMessage
+
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+    user_id: str
+
+
+store = InMemoryStore()
+checkpointer = InMemorySaver()
+
+
+def save_and_recall(state: State):
+    ns = (state["user_id"], "memories")
+    # 从最近一条用户消息里「记住」一句（演示）
+    user_text = ""
+    for m in reversed(state["messages"]):
+        if isinstance(m, HumanMessage):
+            user_text = m.content
+            break
+    if "喜欢" in user_text or "like" in user_text.lower():
+        store.put(ns, str(uuid4()), {"note": user_text})
+    hits = store.search(ns, limit=5)
+    notes = [h.value.get("note", str(h.value)) for h in hits]
+    reply = "已存偏好。" if notes else "还没有记忆。"
+    if notes:
+        reply += " 当前记忆：" + " | ".join(notes)
+    return {"messages": [AIMessage(content=reply)]}
+
+
+g = StateGraph(State)
+g.add_node("mem", save_and_recall)
+g.add_edge(START, "mem")
+g.add_edge("mem", END)
+app = g.compile(checkpointer=checkpointer, store=store)
+
+uid = "user-42"
+# 对话 1
+app.invoke(
+    {"messages": [HumanMessage(content="我喜欢吃火锅")], "user_id": uid},
+    {"configurable": {"thread_id": "thread-1"}},
+)
+# 对话 2（不同 thread，同一 user）
+out = app.invoke(
+    {"messages": [HumanMessage(content="你还记得我吗？")], "user_id": uid},
+    {"configurable": {"thread_id": "thread-2"}},
+)
+print(out["messages"][-1].content)
+print("raw store:", [i.value for i in store.search((uid, "memories"))])
+`,
+  },
+  {
+    id: "r7",
+    n: "实例 G",
+    title: "并行分支",
+    sub: "fan-out A→B,C→D + operator.add",
+    lead: "官方 use-graph-api 并行：从同一节点扇出到 B/C，再用 reducer 合并列表字段。",
+    bridge: "≈ Eino 并行节点 + 状态合并。",
+    run: "<code>pip install -U langgraph</code>。无需 API Key。",
+    flow: "<b>START</b> → fanout → (branch_b ‖ branch_c) → join → END；vals 用 Annotated[list, operator.add] 合并",
+    combo: ["并行边", "operator.add", "reducer"],
+    code: `"""实例 G：并行分支 + reducer
+对齐：docs.langchain.com/oss/python/langgraph/use-graph-api 并行思路
+"""
+import operator
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+class State(TypedDict):
+    vals: Annotated[list[str], operator.add]
+
+
+def fanout(state: State):
+    return {"vals": ["start"]}
+
+
+def branch_b(state: State):
+    return {"vals": ["B"]}
+
+
+def branch_c(state: State):
+    return {"vals": ["C"]}
+
+
+def join(state: State):
+    return {"vals": [f"joined:{','.join(state['vals'])}"]}
+
+
+builder = StateGraph(State)
+builder.add_node("fanout", fanout)
+builder.add_node("branch_b", branch_b)
+builder.add_node("branch_c", branch_c)
+builder.add_node("join", join)
+builder.add_edge(START, "fanout")
+builder.add_edge("fanout", "branch_b")
+builder.add_edge("fanout", "branch_c")
+builder.add_edge("branch_b", "join")
+builder.add_edge("branch_c", "join")
+builder.add_edge("join", END)
+graph = builder.compile()
+
+print(graph.invoke({"vals": []}))
+`,
+  },
+];
+
+const nav = document.getElementById("nav");
+const main = document.getElementById("main");
+
+function esc(s) {
+  return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+function show(id) {
+  const r = RECIPES.find(x => x.id === id);
+  nav.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.id === id));
+  main.innerHTML = `
+    <div class="n" style="font-size:11px;font-weight:700;color:var(--accent)">${r.n}</div>
+    <h2>${r.title}</h2>
+    <p class="lead">${r.lead}</p>
+    <div class="combo">${r.combo.map(c => `<span>${c}</span>`).join("")}</div>
+    <div class="flow">${r.flow}</div>
+    <div class="bridge">${r.bridge}</div>
+    <div class="toolbar">
+      <button type="button" id="copy">复制代码</button>
+      <span class="ok" id="ok">已复制</span>
+    </div>
+    <pre id="code">${esc(r.code)}</pre>
+    <p class="run">${r.run}</p>
+  `;
+  document.getElementById("copy").onclick = async () => {
+    await navigator.clipboard.writeText(r.code);
+    const ok = document.getElementById("ok");
+    ok.classList.add("show");
+    setTimeout(() => ok.classList.remove("show"), 1200);
+  };
+}
+
+nav.innerHTML = RECIPES.map(r => `
+  <button type="button" data-id="${r.id}">
+    <span class="n">${r.n}</span>
+    <span class="t">${r.title}</span>
+    <span class="s">${r.sub}</span>
+  </button>
+`).join("");
+nav.querySelectorAll("button").forEach(b => b.onclick = () => show(b.dataset.id));
+show("r2");
+
+</script>
+</body>
+</html>

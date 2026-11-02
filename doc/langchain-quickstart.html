@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LangChain 主链路</title>
+<style>
+  :root {
+    --bg: #fafafa; --panel: #fff; --ink: #171717; --muted: #737373;
+    --line: #ececec; --accent: #2563eb; --accent-soft: #eff6ff; --soft: #f5f5f5;
+    --code-bg: #111827; --code-ink: #e5e7eb; --green: #047857;
+    font-family: "PingFang SC", "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; }
+  header { padding: 18px 24px 8px; }
+  header h1 { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+  header p { margin-top: 4px; font-size: 13px; color: var(--muted); max-width: 56em; line-height: 1.5; }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(340px, 0.92fr) minmax(360px, 1.08fr);
+    gap: 14px; padding: 10px 18px 20px;
+    height: calc(100vh - 78px); min-height: 580px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  .panel-hd {
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    display: flex; justify-content: space-between;
+  }
+  .flow { flex: 1; overflow: auto; padding: 18px 24px 28px; }
+  .phase {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    color: #a3a3a3; text-transform: uppercase; margin: 14px 0 8px;
+  }
+  .phase:first-child { margin-top: 0; }
+  .step-card {
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
+    padding: 12px 14px 11px; cursor: pointer;
+    transition: border-color .12s, box-shadow .12s, background .12s;
+  }
+  .step-card:hover { border-color: #bfdbfe; background: #f8fbff; }
+  .step-card.active {
+    border-color: var(--accent); background: var(--accent-soft);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    background: #fff; border: 1px solid #bfdbfe; margin-right: 8px;
+  }
+  .step-card.active .step-num { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .step-title { font-size: 13.5px; font-weight: 650; }
+  .step-desc { margin-top: 5px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    font-size: 11.5px; padding: 4px 9px; border-radius: 8px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    cursor: pointer; font-weight: 500;
+  }
+  .chip:hover { border-color: #93c5fd; }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .arrow {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 6px 0; font-size: 11px; font-weight: 600; gap: 2px;
+  }
+  .arrow .line { width: 1px; height: 10px; background: #d4d4d4; }
+  .arrow .why {
+    color: var(--accent); background: var(--accent-soft);
+    border-radius: 999px; padding: 2px 10px; font-size: 11px; font-weight: 650;
+    text-align: center; max-width: 92%;
+  }
+  .side-note {
+    margin-top: 8px; padding: 7px 9px; border-radius: 8px;
+    background: var(--soft); font-size: 11.5px; color: #525252;
+  }
+  .side-note b { color: var(--green); font-weight: 650; }
+  .detail { flex: 1; overflow: auto; padding: 18px 20px 24px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 650;
+    color: var(--accent); background: var(--accent-soft);
+    border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .detail h3 { font-size: 18px; font-weight: 650; letter-spacing: -.02em; margin-bottom: 6px; }
+  .detail .lead { font-size: 13.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.55; }
+  .bridge {
+    border-left: 3px solid #6ee7b7; padding-left: 10px;
+    font-size: 12.5px; color: #404040; margin-bottom: 14px; line-height: 1.5;
+  }
+  .bridge strong { color: var(--green); }
+  .one-liner {
+    font-size: 13px; padding: 10px 12px; border-radius: 10px;
+    background: #f5f5f5; margin-bottom: 14px; line-height: 1.5;
+  }
+  .one-liner b { font-weight: 650; }
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: 10px;
+    padding: 13px 14px; overflow: auto; font-size: 12.2px; line-height: 1.55;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; margin-bottom: 12px;
+  }
+  .note { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; height: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>LangChain：完整主链路</h1>
+  <p>RAG 已按官方拆成：切分→向量化→入库→检索→塞上下文。点 LCEL 下的小按钮看每步。</p>
+</header>
+
+<div class="layout">
+  <section class="panel">
+    <div class="panel-hd"><span>主链路</span><span>10 步</span></div>
+    <div class="flow" id="flow"></div>
+  </section>
+  <section class="panel">
+    <div class="panel-hd"><span>实例</span><span id="crumb"></span></div>
+    <div class="detail" id="detail"></div>
+  </section>
+</div>
+
+<script>
+const TOPICS = {
+  chain_prompt_model_parser: {
+    title: "① 一次模型调用",
+    lead: "最小闭环：造消息 → 模型推理 →（可选）结构化输出。",
+    one: "只记住：<b>Prompt 喂给 Model，Model 产出给 Parser</b>。",
+    bridge: "≈ Eino：ChatTemplate → ChatModel → OutputParser。",
+    code: `from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "用中文、一句话回答。"),
+    ("human", "{q}"),
+])
+llm = ChatOpenAI(model="gpt-4o-mini")
+print((prompt | llm).invoke({"q": "什么是 LCEL"}).content)`,
+    note: "先会这三样，再往下走。"
+  },
+  prompt: {
+    title: "Prompt",
+    lead: "把变量编成 system/human 消息。",
+    one: "<b>位置：</b>① 入口。",
+    bridge: "≈ Eino ChatTemplate。",
+    code: `from langchain_core.prompts import ChatPromptTemplate
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是简洁助教。"),
+    ("human", "解释：{topic}"),
+])
+print(prompt.invoke({"topic": "Agent"}))`,
+    note: "RAG 时检索结果也在这里注入。"
+  },
+  model: {
+    title: "Chat Model",
+    lead: "唯一负责「想」的组件。",
+    one: "<b>位置：</b>① 核心；后面节点里还是它。",
+    bridge: "≈ Eino ChatModel。",
+    code: `from langchain_openai import ChatOpenAI
+print(ChatOpenAI(model="gpt-4o-mini").invoke("一句话解释 LangChain").content)`,
+    note: "API Key 放环境变量。"
+  },
+  parser: {
+    title: "Parser / 结构化输出",
+    lead: "下游拿到 Pydantic / dict。",
+    one: "<b>位置：</b>① 出口。",
+    bridge: "优先 with_structured_output。",
+    code: `from pydantic import BaseModel
+from langchain_openai import ChatOpenAI
+class Brief(BaseModel):
+    title: str
+    points: list[str]
+print(ChatOpenAI(model="gpt-4o-mini").with_structured_output(Brief).invoke("总结 LCEL"))`,
+    note: "别手抠 JSON。"
+  },
+  lcel: {
+    title: "② LCEL 管道",
+    lead: "用 | 串成可 invoke / stream / batch 的链。",
+    one: "<b>相对①：</b>手动两步变成管道。",
+    bridge: "≈ Eino Chain / Compose。",
+    code: `chain = prompt | llm | StrOutputParser()
+print(chain.invoke({"q": "什么是 LCEL"}))`,
+    note: "单向走一遍；没有工具回环。"
+  },
+  retrieval: {
+    title: "旁路：RAG 全流程",
+    lead: "官方语义检索教程同一条线：切分 → 向量化(Embeddings) → 写入 VectorStore → 检索 → 把片段塞进 Prompt 再生成。",
+    one: "<b>挂在：</b>② LCEL 上游。入库用向量库（内存/Chroma/pgvector…），不是随便一个业务表。",
+    bridge: "官方：docs.langchain.com/oss/python/langchain/knowledge-base",
+    code: `from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_core.prompts import ChatPromptTemplate
+
+# 1) 文档（官方也可从 PDF load）
+docs = [
+    Document(page_content="LCEL 用 | 连接 Runnable。", metadata={"source": "intro"}),
+    Document(page_content="LangGraph 用 StateGraph 管多步与回环。", metadata={"source": "intro"}),
+]
+
+# 2) 切分（官方推荐 RecursiveCharacterTextSplitter）
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000, chunk_overlap=200, add_start_index=True
+)
+splits = splitter.split_documents(docs)
+
+# 3) 向量化模型 Embeddings
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+
+# 4) 入库 VectorStore（官方 demo 用 InMemory；生产换 Chroma/pgvector）
+vector_store = InMemoryVectorStore(embeddings)
+vector_store.add_documents(documents=splits)
+
+# 5) 检索 Retriever
+retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 2})
+
+# 6) 塞进上下文 → 生成（RAG）
+prompt = ChatPromptTemplate.from_template(
+    "只根据资料回答。\\n资料:{context}\\n问题:{question}"
+)
+llm = ChatOpenAI(model="gpt-4o-mini")
+
+q = "LCEL 怎么串组件？"
+ctx = "\\n".join(d.page_content for d in retriever.invoke(q))
+print((prompt | llm).invoke({"context": ctx, "question": q}).content)`,
+    note: "缺 Embeddings 或 VectorStore，就只剩「手工贴资料」，不算完整 RAG。"
+  },
+  split: {
+    title: "RAG · 切分 Split",
+    lead: "大文档切成小块，方便检索和塞进有限上下文。官方推荐 RecursiveCharacterTextSplitter。",
+    one: "<b>位置：</b>入库前。chunk_size / chunk_overlap 要调。",
+    bridge: "官方 knowledge-base：split_documents。",
+    code: `from langchain_text_splitters import RecursiveCharacterTextSplitter
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000, chunk_overlap=200, add_start_index=True
+)
+all_splits = text_splitter.split_documents(docs)`,
+    note: "页太粗会稀释语义；块太碎会丢上下文。"
+  },
+  embed: {
+    title: "RAG · 向量化 Embeddings",
+    lead: "把文本变成向量，语义相近的在空间里靠近。这就是你说的「向量模型」。",
+    one: "<b>位置：</b>切分之后、入库之时。查询时问题也要同一套模型向量化。",
+    bridge: "官方：OpenAIEmbeddings(model=\"text-embedding-3-large\") 等。",
+    code: `from langchain_openai import OpenAIEmbeddings
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+vector = embeddings.embed_query("LCEL 是什么")
+print(len(vector), vector[:5])`,
+    note: "入库和查询必须用同一 embedding 模型，否则检索会歪。"
+  },
+  vectorstore: {
+    title: "RAG · 入库 VectorStore",
+    lead: "存「向量 ↔ 原文块」，并提供相似度搜索。官方入门用 InMemoryVectorStore；生产用 Chroma / pgvector / Pinecone…",
+    one: "<b>是不是数据库？</b>是向量库（专用索引），可以落在 Postgres(pgvector) 等，但不等于普通业务表。",
+    bridge: "官方：vector_store.add_documents(documents=all_splits)",
+    code: `from langchain_core.vectorstores import InMemoryVectorStore
+vector_store = InMemoryVectorStore(embeddings)
+ids = vector_store.add_documents(documents=all_splits)
+# 生产示例（官方 integrations）：
+# from langchain_chroma import Chroma
+# vector_store = Chroma(embedding_function=embeddings, persist_directory="./db")`,
+    note: "没有这一步，就没有可复用的检索索引。"
+  },
+  retrieve_step: {
+    title: "RAG · 检索 Retrieve",
+    lead: "把问题也向量化，在库里找最相似的块。as_retriever 变成 Runnable，方便进 LCEL。",
+    one: "<b>位置：</b>问答时（在线）；前面切分/向量化/入库通常离线做一次。",
+    bridge: "官方：similarity_search 或 as_retriever。",
+    code: `results = vector_store.similarity_search("LCEL 怎么串？", k=2)
+retriever = vector_store.as_retriever(
+    search_type="similarity", search_kwargs={"k": 2}
+)
+print(retriever.invoke("LCEL 怎么串？"))`,
+    note: "检索只要 Document 列表；还没到「回答」。"
+  },
+  rag_context: {
+    title: "RAG · 塞进上下文 + 生成",
+    lead: "把检索到的片段拼进 Prompt，再交给 Chat Model——这才叫 Retrieval-Augmented Generation。",
+    one: "<b>位置：</b>LCEL：retriever → format → prompt | llm",
+    bridge: "官方下一步链到 RAG tutorial；组合实例 B 有完整链。",
+    code: `prompt = ChatPromptTemplate.from_template(
+    "资料:{context}\\n问题:{question}"
+)
+ctx = "\\n".join(d.page_content for d in retriever.invoke(q))
+answer = (prompt | llm).invoke({"context": ctx, "question": q})`,
+    note: "资料不够时应让模型说「不知道」，避免瞎编。"
+  },
+  streaming: {
+    title: "旁路：Streaming",
+    lead: "边生成边推前端，产品体感靠它。",
+    one: "<b>挂在：</b>②③④ 都支持。",
+    bridge: "Graph 常用 stream_mode。",
+    code: `for t in chain.stream({"q": "什么是 Agent"}):
+    print(t, end="", flush=True)`,
+    note: "WebSocket 场景再挖 astream_events。"
+  },
+  agent: {
+    title: "③ Agent = 工具循环",
+    lead: "Model ⇄ Tools，直到最终答案。",
+    one: "<b>相对 LCEL：</b>走一遍 → while。",
+    bridge: "完整脚本见组合实例 C。",
+    code: `agent = create_react_agent(llm, tools=[...])
+agent.invoke({"messages": [("user", "12*8=?")]})`,
+    note: "bind_tools 只声明；执行在循环里。"
+  },
+  tools: {
+    title: "Tools",
+    lead: "Model 的外部动作。",
+    one: "<b>挂在：</b>③。",
+    bridge: "≈ Eino Tools。",
+    code: `from langchain_core.tools import tool
+@tool
+def add(a: int, b: int) -> int:
+    """两数相加。"""
+    return a + b`,
+    note: "bind_tools ≠ 自动执行。"
+  },
+  graph: {
+    title: "④ LangGraph",
+    lead: "State + Node + 条件边，控制流可见。",
+    one: "<b>相对 Agent：</b>黑盒循环 → 你画的图。",
+    bridge: "≈ Eino Graph。完整见组合实例 D。",
+    code: `g = StateGraph(State)
+g.add_node(...)
+g.add_conditional_edges(...)
+app = g.compile(checkpointer=...)`,
+    note: "节点里可以是 LCEL / Model 调用。"
+  },
+  memory: {
+    title: "⑤ Checkpointer",
+    lead: "按 thread_id 存短状态：续聊、挂起、回退的前提。",
+    one: "<b>相对 Graph：</b>没它每次 invoke 都失忆。",
+    bridge: "≈ Eino checkpoint。",
+    code: `app = graph.compile(checkpointer=MemorySaver())
+cfg = {"configurable": {"thread_id": "u1"}}
+app.invoke(inputs, cfg)`,
+    note: "这是线程级短记忆，不是跨会话画像。"
+  },
+  hitl: {
+    title: "⑥ 中断 + 回退",
+    lead: "关键步 interrupt 等人；resume 继续；history 时间旅行。",
+    one: "<b>前提：</b>⑤。完整脚本见组合实例 F。",
+    bridge: "≈ Eino 人工节点 + checkpoint 回放。",
+    code: `ok = interrupt({"draft": state["draft"]})
+app.invoke(Command(resume=True), cfg)
+for h in app.get_state_history(cfg):
+    print(h.config["configurable"]["checkpoint_id"], h.next)`,
+    note: "生产写操作几乎都要 HITL。"
+  },
+  long_memory: {
+    title: "⑦ 长期记忆 Store",
+    lead: "跨 thread 记住用户偏好 / 画像。Checkpoint 管「这场对话」；Store 管「这个人」。",
+    one: "<b>相对⑤：</b>短状态 vs 长期事实。",
+    bridge: "≈ 独立记忆库 / KV；Eino 侧也常外挂存储。",
+    code: `from langgraph.store.memory import InMemoryStore
+
+store = InMemoryStore()
+store.put(("users", "u1"), "prefs", {"city": "成都", "tone": "简洁"})
+item = store.get(("users", "u1"), "prefs")
+print(item.value)
+
+# 在节点里读 Store，写入 Prompt / State
+# 生产换 PostgresStore 等`,
+    note: "要做「记住我」就必须上 Store（或自建 DB），不能只堆 messages。"
+  },
+  observe: {
+    title: "⑧ 观测 / LangSmith",
+    lead: "每次链、工具、延迟、token 打成 trace。Agent 失败是常态，没 trace 等于盲修。",
+    one: "<b>相对前序：</b>能跑 ≠ 能运维。",
+    bridge: "开环境变量即可；不必先改业务代码。",
+    code: `# shell
+# export LANGSMITH_TRACING=true
+# export LANGSMITH_API_KEY=...
+# export LANGSMITH_PROJECT=langchain-intro
+
+# 之后所有 invoke / stream 自动出现在 LangSmith
+result = app.invoke(inputs, cfg)
+
+# 代码里也可打点
+from langchain_core.callbacks import collect_runs`,
+    note: "一接真实用户就建议打开；本地玩具阶段可后开。"
+  },
+  multi_agent: {
+    title: "⑨ 多 Agent / Subgraph",
+    lead: "单图不够时：Supervisor 分派，或把专家能力封成子图嵌进去。",
+    one: "<b>相对④：</b>一张图 → 多角色协作。",
+    bridge: "≈ 多个 Eino Graph 协作。单 Agent 不稳时不要急着拆。",
+    code: `# 思路：supervisor 节点路由
+# research_subgraph / writer_subgraph 作为 node
+
+def route(state):
+    return "research" if state["need_search"] else "writer"
+
+graph.add_node("research", research_subgraph)
+graph.add_node("writer", writer_subgraph)
+graph.add_conditional_edges("supervisor", route)`,
+    note: "入门作品集有单图+HITL 即可；业务复杂度上来再拆。"
+  },
+  evals: {
+    title: "⑩ 评测 Evals",
+    lead: "固定数据集回归：改 Prompt / Tool / 边之后，用断言防止越改越坏。",
+    one: "<b>相对⑧：</b>trace 看单次；eval 看整体有没有退步。",
+    bridge: "LangSmith dataset 或自建 pytest 都行。",
+    code: `cases = [
+    {"q": "订单 A100 状态？", "must_call": "order_status"},
+    {"q": "你们谁家公司？", "must_not_call": "order_status"},
+]
+
+def run_eval(app):
+    for c in cases:
+        out = app.invoke({"messages": [("user", c["q"])]}, cfg_for(c))
+        names = tool_names(out)
+        if c.get("must_call"):
+            assert c["must_call"] in names, c
+        if c.get("must_not_call"):
+            assert c["must_not_call"] not in names, c
+    print("eval ok")`,
+    note: "没有 eval，RAG/Agent 优化全凭感觉——这是很多人卡住的原因。"
+  },
+  compare: {
+    title: "和 Eino 怎么对应",
+    lead: "同一条主链路，两边换皮。",
+    one: "<b>迁移顺序：</b>①⑥ 对齐后，再搬 Store / 多图。",
+    bridge: "Eino 经历 = Go Agent / 云原生编排加分。",
+    code: `# ChatModel→ChatOpenAI  Template→Prompt  Tools→@tool
+# Compose→LCEL  Graph→StateGraph  Checkpoint→checkpointer
+# 人工节点→interrupt  外挂记忆→Store`,
+    note: "找工作主推 Python + LangGraph。"
+  }
+};
+
+const PHASES = [
+  {
+    name: "会跑通",
+    steps: [
+      {
+        id: "chain_prompt_model_parser",
+        title: "一次模型调用",
+        desc: "Prompt → Model → Parser。",
+        chips: [
+          { id: "prompt", label: "Prompt" },
+          { id: "model", label: "Model" },
+          { id: "parser", label: "Parser" },
+        ],
+      },
+      {
+        arrow: "用 | 串起来",
+        id: "lcel",
+        title: "LCEL 管道",
+        desc: "单向链；可 stream。",
+        chips: [
+          { id: "retrieval", label: "RAG 全流程" },
+          { id: "split", label: "切分" },
+          { id: "embed", label: "向量化" },
+          { id: "vectorstore", label: "入库" },
+          { id: "retrieve_step", label: "检索" },
+          { id: "rag_context", label: "塞上下文" },
+          { id: "streaming", label: "Streaming" },
+        ],
+        side: "<b>RAG：</b>切分→Embeddings→VectorStore→检索→塞进 Prompt。官方 knowledge-base 同款。",
+      },
+      {
+        arrow: "需要外部工具时",
+        id: "agent",
+        title: "Agent（工具循环）",
+        desc: "Model ⇄ Tools。",
+        chips: [{ id: "tools", label: "Tools" }],
+      },
+      {
+        arrow: "需要分支 / 回环 / 人机时",
+        id: "graph",
+        title: "LangGraph",
+        desc: "显式状态图。",
+        chips: [{ id: "compare", label: "Eino 对照" }],
+      },
+      {
+        arrow: "需要续聊 / 挂起时",
+        id: "memory",
+        title: "Checkpointer",
+        desc: "线程级短状态持久化。",
+      },
+      {
+        arrow: "写操作要确认 / 做错要反悔",
+        id: "hitl",
+        title: "中断 + 回退",
+        desc: "interrupt · resume · 时间旅行。",
+      },
+    ],
+  },
+  {
+    name: "上线与做大",
+    steps: [
+      {
+        arrow: "要记住「这个人」而不只是「这场对话」",
+        id: "long_memory",
+        title: "长期记忆 Store",
+        desc: "跨 thread 的偏好 / 画像。",
+      },
+      {
+        arrow: "线上必须能复盘每一次调用",
+        id: "observe",
+        title: "观测 / LangSmith",
+        desc: "Trace：链、工具、延迟、token。",
+      },
+      {
+        arrow: "单角色不够，要分工协作时",
+        id: "multi_agent",
+        title: "多 Agent / Subgraph",
+        desc: "Supervisor 路由或子图嵌套。",
+      },
+      {
+        arrow: "改动要有回归，不能凭感觉",
+        id: "evals",
+        title: "评测 Evals",
+        desc: "固定集断言，防止越改越坏。",
+      },
+    ],
+  },
+];
+
+function renderFlow() {
+  const root = document.getElementById("flow");
+  let n = 0;
+  root.innerHTML = PHASES.map(ph => {
+    const body = ph.steps.map(s => {
+      n += 1;
+      const num = n;
+      const arrow = s.arrow
+        ? `<div class="arrow"><span class="line"></span><span class="why">↓ ${s.arrow}</span><span class="line"></span></div>`
+        : "";
+      const chips = (s.chips || [])
+        .map(c => `<button class="chip" data-id="${c.id}" type="button">${c.label}</button>`)
+        .join("");
+      const side = s.side ? `<div class="side-note">${s.side}</div>` : "";
+      return `${arrow}
+        <div class="step-card" data-id="${s.id}">
+          <div><span class="step-num">${num}</span><span class="step-title">${s.title}</span></div>
+          <div class="step-desc">${s.desc}</div>
+          ${chips ? `<div class="chips">${chips}</div>` : ""}
+          ${side}
+        </div>`;
+    }).join("");
+    return `<div class="phase">${ph.name}</div>${body}`;
+  }).join("");
+
+  root.querySelectorAll(".step-card").forEach(el => {
+    el.addEventListener("click", e => {
+      if (e.target.closest(".chip")) return;
+      select(el.getAttribute("data-id"));
+    });
+  });
+  root.querySelectorAll(".chip").forEach(el => {
+    el.addEventListener("click", e => {
+      e.stopPropagation();
+      select(el.getAttribute("data-id"));
+    });
+  });
+}
+
+function select(id) {
+  const t = TOPICS[id];
+  if (!t) return;
+  document.getElementById("crumb").textContent = t.title;
+  document.querySelectorAll(".step-card").forEach(el => {
+    el.classList.toggle("active", el.getAttribute("data-id") === id);
+  });
+  document.querySelectorAll(".chip").forEach(el => {
+    el.classList.toggle("active", el.getAttribute("data-id") === id);
+  });
+  const parent = PHASES.flatMap(p => p.steps)
+    .find(s => s.id === id || (s.chips || []).some(c => c.id === id));
+  if (parent) {
+    document.querySelectorAll(".step-card").forEach(el => {
+      if (el.getAttribute("data-id") === parent.id) el.classList.add("active");
+    });
+  }
+  document.getElementById("detail").innerHTML = `
+    <div class="badge">主链路实例</div>
+    <h3>${t.title}</h3>
+    <p class="lead">${t.lead}</p>
+    <div class="one-liner">${t.one}</div>
+    <div class="bridge">${t.bridge}</div>
+    <pre>${esc(t.code)}</pre>
+    <p class="note">${t.note}</p>
+  `;
+}
+function esc(s) {
+  return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+renderFlow();
+select("long_memory");
+</script>
+</body>
+</html>
