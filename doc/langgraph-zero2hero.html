@@ -112,10 +112,10 @@ load_dotenv(override=<span class="tok-keyword">True</span>)
 <span class="focus-line">llm=make_llm().with_structured_output(Brief)</span>
 <span class="focus-line">result=llm.invoke(<span class="tok-string">&quot;请总结一下《三体》系列小说的核心内容&quot;</span>)</span>
 <span class="focus-line"><span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(result, Brief):</span>
-    <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected Brief, got {type(result).__name__}&quot;</span>)
+    <span class="tok-keyword">raise</span> TypeError(f&quot;expected Brief, got {type(result).__name__}&quot;)
 print(<span class="tok-string">&quot;title:&quot;</span>,result.title)
 <span class="tok-keyword">for</span> i,p <span class="tok-keyword">in</span> enumerate(result.points,<span class="tok-number">1</span>):
-    print(<span class="tok-string">f&quot;{i}.{p}&quot;</span>)
+    print(f&quot;{i}.{p}&quot;)
 </code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>BaseModel</code> 定义字段类型；<code>with_structured_output</code> 负责按结构生成和解析。</p><p><b>02 / 逻辑</b>让模型生成 <code>Brief</code>，再读取标题和要点。字段描述中的“3条”不是严格数量约束。</p></div><p class="run">运行：<code>python code/s03_structure.py</code> · 需服务端支持对应的结构化输出方式。</p></section>
 <section id="s04"><div class="heading"><span class="num">04</span><h2>让模型使用工具</h2><a class="source" href="../code/s04_tool.py">s04_tool.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="用户交给 Agent，Agent 和加法乘法工具往返，Agent 最终给出回答"><div class="stack"><div class="flow"><span class="node">用户</span><span class="arrow">→</span><span class="node accent">Agent</span><span class="arrow">→</span><span class="node">回答</span></div><div class="small">调用工具 ↓　↑ 工具结果</div><div class="node">add · multiply</div></div></div><div class="code"><div class="code-label">完整代码 · s04_tool.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-keyword">import</span> os 
 
@@ -187,7 +187,7 @@ load_dotenv(override=<span class="tok-keyword">True</span>)  <span class="tok-co
 
 <span class="tok-keyword">def</span> as_text(content: str | list[str | dict]) -&gt; str:
     <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(content, str):
-        <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected str, got {type(content).__name__}&quot;</span>)
+        <span class="tok-keyword">raise</span> TypeError(f&quot;expected str, got {type(content).__name__}&quot;)
     <span class="tok-keyword">return</span> content.strip()
 
 
@@ -202,7 +202,7 @@ llm = make_llm()
     topic = state.get(<span class="tok-string">&quot;topic&quot;</span>)
     <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> topic:
         <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;topic is not set&quot;</span>)
-    msg = llm.invoke(<span class="tok-string">f&quot;Write a one-line joke about {topic}. Reply with the joke only.&quot;</span>)
+    msg = llm.invoke(f&quot;Write a one-line joke about {topic}. Reply with the joke only.&quot;)
     <span class="tok-keyword">return</span> {<span class="tok-string">&quot;joke&quot;</span>: as_text(msg.content)}
 
 
@@ -434,10 +434,10 @@ graph.invoke({<span class="tok-string">&quot;action_details&quot;</span>: <span 
 <span class="focus-line">rejected = graph.invoke(Command(resume=<span class="tok-keyword">False</span>), cfg2)</span>
 print(<span class="tok-string">&quot;after reject:&quot;</span>, rejected[<span class="tok-string">&quot;status&quot;</span>])
 </code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>interrupt</code> 暂停并暴露审批信息；<code>Command</code> 恢复执行或指定下一节点。</p><p><b>02 / 逻辑</b>同一线程传回决定后走批准或拒绝分支。示例模拟人工决定，不执行实际转账或删除操作。</p></div><p class="run">运行：<code>python code/s08_hitl.py</code> · 恢复时节点从头重跑到中断处，之前的副作用应安全可重试。</p></section>
-<section id="s09"><div class="heading"><span class="num">09</span><h2>综合实例：退款审批</h2><a class="source" href="../code/s09_refund_agent.py">s09_refund_agent.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="提取申请、查订单、规则检查、人工审批和模拟退款"><div class="stack"><div class="node">用户退款申请</div><div class="arrow">↓</div><div class="node accent">模型 · 提取订单号和原因</div><div class="small">缺信息 → 提示重新申请 → END</div><div class="arrow">↓</div><div class="node accent">工具 · 查询订单</div><div class="arrow">↓</div><div class="node accent">代码 · 退款规则检查</div><div class="small">订单不存在 / 已退款 / 超期 → END</div><div class="arrow">↓ 符合规则</div><div class="node accent">人工审批 · interrupt</div><div class="small">拒绝 → END</div><div class="arrow">↓ 批准</div><div class="node accent">模拟退款</div><div class="small">成功 / 失败 → END</div></div></div><div class="code"><div class="code-label">完整代码 · s09_refund_agent.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s09_refund_agent.py — 退款申请演示：提取、查单、规则、审批、模拟退款。</span>
+<section id="s09"><div class="heading"><span class="num">09</span><h2>综合实例：退款审批</h2><a class="source" href="../code/s09_refund_agent.py">s09_refund_agent.py ↗</a></div><div class="pair"><div class="diagram" role="img" aria-label="提取申请、三步追问、查订单、规则检查、人工审批和模拟退款"><div class="stack"><div class="node">用户退款申请</div><div class="arrow">↓</div><div class="node accent">模型 · 提取订单号和原因</div><div class="small">两项都齐 → 直接查单</div><div class="arrow">↓ 缺订单号或原因</div><div class="node accent">追问 · interrupt，固定 3 步</div><div class="small">补齐后查单；3 步后仍缺 → END</div><div class="arrow">↓</div><div class="node accent">工具 · 查询订单</div><div class="arrow">↓</div><div class="node accent">代码 · 退款规则检查</div><div class="small">订单不存在 / 已退款 / 超期 → END</div><div class="arrow">↓ 符合规则</div><div class="node accent">人工审批 · interrupt</div><div class="small">拒绝 → END</div><div class="arrow">↓ 批准</div><div class="node accent">模拟退款</div><div class="small">成功 / 失败 → END</div></div></div><div class="code"><div class="code-label">完整代码 · s09_refund_agent.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s09_refund_agent.py — 退款申请演示：提取、追问、查单、规则、审批、模拟退款。</span>
 
 <span class="tok-string">项目根目录运行：python code/s09_refund_agent.py</span>
-<span class="tok-string">本例使用模拟订单和退款结果，不连接真实支付系统。</span>
+<span class="tok-string">订单号或原因缺失时追问 3 步，补齐后才查单。本例使用模拟订单和退款结果，不连接真实支付系统。</span>
 <span class="tok-string">&quot;&quot;&quot;</span>
 <span class="tok-keyword">import</span> os
 <span class="tok-keyword">from</span> datetime <span class="tok-keyword">import</span> date, timedelta
@@ -476,9 +476,13 @@ load_dotenv(override=<span class="tok-keyword">True</span>)
     user_text: str
     order_id: NotRequired[str | <span class="tok-keyword">None</span>]
     reason: NotRequired[str | <span class="tok-keyword">None</span>]
+<span class="focus-line">    clarify_turns: NotRequired[int]</span>
     order: NotRequired[Order | <span class="tok-keyword">None</span>]
     status: NotRequired[str]
     result: NotRequired[str]
+
+
+<span class="focus-line">CLARIFY_TURNS = <span class="tok-number">3</span></span>
 
 
 <span class="focus-line"><span class="tok-keyword">@</span>tool</span>
@@ -504,21 +508,92 @@ llm = ChatOpenAI(
 <span class="focus-line">extractor = llm.with_structured_output(RefundRequest)</span>
 
 
-<span class="focus-line"><span class="tok-keyword">def</span> extract_request(state: RefundState) -&gt; dict:</span>
-    request = extractor.invoke(state[<span class="tok-string">&quot;user_text&quot;</span>])
+<span class="tok-keyword">def</span> _filled(value: str | <span class="tok-keyword">None</span>) -&gt; str | <span class="tok-keyword">None</span>:
+    text = (value <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip()
+    <span class="tok-keyword">return</span> text <span class="tok-keyword">or</span> <span class="tok-keyword">None</span>
+
+
+<span class="tok-keyword">def</span> _complete(state: RefundState) -&gt; bool:
+    <span class="tok-keyword">return</span> _filled(state.get(<span class="tok-string">&quot;order_id&quot;</span>)) <span class="tok-keyword">is</span> <span class="tok-keyword">not</span> <span class="tok-keyword">None</span> <span class="tok-keyword">and</span> _filled(state.get(<span class="tok-string">&quot;reason&quot;</span>)) <span class="tok-keyword">is</span> <span class="tok-keyword">not</span> <span class="tok-keyword">None</span>
+
+
+<span class="tok-keyword">def</span> _read_request(text: str) -&gt; RefundRequest:
+    request = extractor.invoke(text)
     <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(request, RefundRequest):
-        <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected RefundRequest, got {type(request).__name__}&quot;</span>)
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: request.order_id, <span class="tok-string">&quot;reason&quot;</span>: request.reason}
+        <span class="tok-keyword">raise</span> TypeError(f&quot;expected RefundRequest, got {type(request).__name__}&quot;)
+    <span class="tok-keyword">return</span> request
 
 
-<span class="focus-line"><span class="tok-keyword">def</span> route_request(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;missing&quot;</span>]:</span>
-    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;order_id&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip() <span class="tok-keyword">or</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;reason&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip():
-        <span class="tok-keyword">return</span> <span class="tok-string">&quot;missing&quot;</span>
-    <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+<span class="focus-line"><span class="tok-keyword">def</span> extract_request(state: RefundState) -&gt; dict:</span>
+    request = _read_request(state[<span class="tok-string">&quot;user_text&quot;</span>])
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: _filled(request.order_id), <span class="tok-string">&quot;reason&quot;</span>: _filled(request.reason)}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> route_request(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;clarify&quot;</span>]:</span>
+    <span class="tok-keyword">if</span> _complete(state):
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;clarify&quot;</span>
+
+
+<span class="tok-keyword">def</span> _clarify_question(state: RefundState) -&gt; str:
+    turn = state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) + <span class="tok-number">1</span>
+    order_id = _filled(state.get(<span class="tok-string">&quot;order_id&quot;</span>))
+    reason = _filled(state.get(<span class="tok-string">&quot;reason&quot;</span>))
+    <span class="tok-keyword">if</span> turn == <span class="tok-number">1</span>:
+        missing = [name <span class="tok-keyword">for</span> name, value <span class="tok-keyword">in</span> ((<span class="tok-string">&quot;订单号&quot;</span>, order_id), (<span class="tok-string">&quot;退款原因&quot;</span>, reason)) <span class="tok-keyword">if</span> value <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>]
+        <span class="tok-keyword">if</span> order_id <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+            <span class="tok-keyword">return</span> f&quot;信息不完整，缺少{<span class="tok-string">&#x27;、&#x27;</span>.join(missing)}。第 {turn}/{CLARIFY_TURNS} 步：请回复订单号。&quot;
+        <span class="tok-keyword">return</span> f&quot;信息不完整，缺少退款原因。第 {turn}/{CLARIFY_TURNS} 步：请回复退款原因。&quot;
+    <span class="tok-keyword">if</span> turn == <span class="tok-number">2</span>:
+        <span class="tok-keyword">if</span> reason <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+            <span class="tok-keyword">return</span> f&quot;第 {turn}/{CLARIFY_TURNS} 步：请回复退款原因。当前订单号：{order_id <span class="tok-keyword">or</span> <span class="tok-string">&#x27;仍缺&#x27;</span>}。&quot;
+        <span class="tok-keyword">if</span> order_id <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>:
+            <span class="tok-keyword">return</span> f&quot;第 {turn}/{CLARIFY_TURNS} 步：请回复订单号。当前原因：{reason}。&quot;
+        <span class="tok-keyword">return</span> f&quot;第 {turn}/{CLARIFY_TURNS} 步：已记录订单 {order_id}，原因「{reason}」。要修改请直接说，否则回复确认。&quot;
+    <span class="tok-keyword">return</span> (
+        f&quot;第 {turn}/{CLARIFY_TURNS} 步：请确认订单号 {order_id <span class="tok-keyword">or</span> <span class="tok-string">&#x27;（仍缺）&#x27;</span>}，&quot;
+        f&quot;退款原因 {reason <span class="tok-keyword">or</span> <span class="tok-string">&#x27;（仍缺）&#x27;</span>}。回复确认，或直接改正。&quot;
+    )
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> clarify(state: RefundState) -&gt; dict:</span>
+<span class="focus-line">    reply = interrupt({</span>
+        <span class="tok-string">&quot;kind&quot;</span>: <span class="tok-string">&quot;clarify&quot;</span>,
+        <span class="tok-string">&quot;turn&quot;</span>: state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) + <span class="tok-number">1</span>,
+        <span class="tok-string">&quot;question&quot;</span>: _clarify_question(state),
+    })
+    text = reply.strip() <span class="tok-keyword">if</span> isinstance(reply, str) <span class="tok-keyword">else</span> <span class="tok-string">&quot;&quot;</span>
+    order_id = _filled(state.get(<span class="tok-string">&quot;order_id&quot;</span>))
+    reason = _filled(state.get(<span class="tok-string">&quot;reason&quot;</span>))
+    <span class="tok-keyword">if</span> text:
+        request = _read_request(
+            <span class="tok-string">&quot;只提取用户明确说出的订单号和退款原因，没说到的保持为空，不要猜测。\n&quot;</span>
+            f&quot;已有订单号：{order_id <span class="tok-keyword">or</span> <span class="tok-string">&#x27;无&#x27;</span>}\n&quot;
+            f&quot;已有原因：{reason <span class="tok-keyword">or</span> <span class="tok-string">&#x27;无&#x27;</span>}\n&quot;
+            f&quot;用户补充：{text}&quot;
+        )
+        order_id = _filled(request.order_id) <span class="tok-keyword">or</span> order_id
+        reason = _filled(request.reason) <span class="tok-keyword">or</span> reason
+    <span class="tok-keyword">return</span> {
+        <span class="tok-string">&quot;user_text&quot;</span>: text,
+        <span class="tok-string">&quot;order_id&quot;</span>: order_id,
+        <span class="tok-string">&quot;reason&quot;</span>: reason,
+        <span class="tok-string">&quot;clarify_turns&quot;</span>: state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) + <span class="tok-number">1</span>,
+    }
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> route_clarify(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;clarify&quot;</span>, <span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;missing&quot;</span>]:</span>
+    <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) &lt; CLARIFY_TURNS:
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;clarify&quot;</span>
+    <span class="tok-keyword">if</span> _complete(state):
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;missing&quot;</span>
 
 
 <span class="tok-keyword">def</span> missing_info(state: RefundState) -&gt; dict:
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;missing_info&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;请提供订单号和退款原因后重新申请。&quot;</span>}
+    missing = [name <span class="tok-keyword">for</span> name, value <span class="tok-keyword">in</span> ((<span class="tok-string">&quot;订单号&quot;</span>, _filled(state.get(<span class="tok-string">&quot;order_id&quot;</span>))), (<span class="tok-string">&quot;退款原因&quot;</span>, _filled(state.get(<span class="tok-string">&quot;reason&quot;</span>)))) <span class="tok-keyword">if</span> value <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>]
+    detail = <span class="tok-string">&quot;、&quot;</span>.join(missing) <span class="tok-keyword">if</span> missing <span class="tok-keyword">else</span> <span class="tok-string">&quot;必要信息&quot;</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;missing_info&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: f&quot;追问 {CLARIFY_TURNS} 次后仍缺少{detail}，申请结束。&quot;}
 
 
 <span class="focus-line"><span class="tok-keyword">def</span> check_order(state: RefundState) -&gt; dict:</span>
@@ -548,6 +623,7 @@ llm = ChatOpenAI(
 
 <span class="focus-line"><span class="tok-keyword">def</span> approve_refund(state: RefundState) -&gt; Command[Literal[<span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>]]:</span>
 <span class="focus-line">    decision = interrupt({</span>
+        <span class="tok-string">&quot;kind&quot;</span>: <span class="tok-string">&quot;approval&quot;</span>,
         <span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;是否批准退款？&quot;</span>,
         <span class="tok-string">&quot;order&quot;</span>: state.get(<span class="tok-string">&quot;order&quot;</span>),
         <span class="tok-string">&quot;reason&quot;</span>: state.get(<span class="tok-string">&quot;reason&quot;</span>),
@@ -564,7 +640,7 @@ llm = ChatOpenAI(
         <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;order is required&quot;</span>)
     <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;simulate_failure&quot;</span>]:
         <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_failed&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;审批通过，但模拟退款失败。&quot;</span>}
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_succeeded&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">f&quot;模拟退款成功：{order[&#x27;order_id&#x27;]}&quot;</span>}
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_succeeded&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: f&quot;模拟退款成功：{order[<span class="tok-string">&#x27;order_id&#x27;</span>]}&quot;}
 
 
 <span class="focus-line"><span class="tok-keyword">def</span> reject(state: RefundState) -&gt; dict:</span>
@@ -573,6 +649,7 @@ llm = ChatOpenAI(
 
 builder = StateGraph(RefundState)
 <span class="focus-line">builder.add_node(<span class="tok-string">&quot;extract&quot;</span>, extract_request)</span>
+<span class="focus-line">builder.add_node(<span class="tok-string">&quot;clarify&quot;</span>, clarify)</span>
 <span class="focus-line">builder.add_node(<span class="tok-string">&quot;missing&quot;</span>, missing_info)</span>
 <span class="focus-line">builder.add_node(<span class="tok-string">&quot;lookup&quot;</span>, check_order)</span>
 <span class="focus-line">builder.add_node(<span class="tok-string">&quot;policy&quot;</span>, check_policy)</span>
@@ -581,6 +658,7 @@ builder = StateGraph(RefundState)
 <span class="focus-line">builder.add_node(<span class="tok-string">&quot;reject&quot;</span>, reject)</span>
 <span class="focus-line">builder.add_edge(START, <span class="tok-string">&quot;extract&quot;</span>)</span>
 <span class="focus-line">builder.add_conditional_edges(<span class="tok-string">&quot;extract&quot;</span>, route_request)</span>
+<span class="focus-line">builder.add_conditional_edges(<span class="tok-string">&quot;clarify&quot;</span>, route_clarify)</span>
 <span class="focus-line">builder.add_edge(<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;policy&quot;</span>)</span>
 <span class="focus-line">builder.add_conditional_edges(<span class="tok-string">&quot;policy&quot;</span>, route_policy, {<span class="tok-string">&quot;approval&quot;</span>: <span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>: END})</span>
 <span class="tok-keyword">for</span> node <span class="tok-keyword">in</span> (<span class="tok-string">&quot;missing&quot;</span>, <span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>):
@@ -594,21 +672,32 @@ builder = StateGraph(RefundState)
     <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> text:
         <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;请输入退款申请&quot;</span>)
 
-<span class="focus-line">    result = app.invoke({<span class="tok-string">&quot;user_text&quot;</span>: text}, config=config)</span>
-    <span class="tok-keyword">if</span> result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>):
-        print(<span class="tok-string">&quot;待审批：&quot;</span>, result[<span class="tok-string">&quot;__interrupt__&quot;</span>][<span class="tok-number">0</span>].value)
+    pending: RefundState | Command = {<span class="tok-string">&quot;user_text&quot;</span>: text}
+    <span class="tok-keyword">while</span> <span class="tok-keyword">True</span>:
+<span class="focus-line">        result = app.invoke(pending, config=config)</span>
+        paused = result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>)
+        <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> paused:
+            <span class="tok-keyword">break</span>
+        payload = paused[<span class="tok-number">0</span>].value
+        <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(payload, dict):
+            <span class="tok-keyword">raise</span> TypeError(f&quot;expected interrupt payload dict, got {type(payload).__name__}&quot;)
+<span class="focus-line">        <span class="tok-keyword">if</span> payload.get(<span class="tok-string">&quot;kind&quot;</span>) == <span class="tok-string">&quot;clarify&quot;</span>:</span>
+            print(payload[<span class="tok-string">&quot;question&quot;</span>])
+            pending = Command(resume=input(<span class="tok-string">&quot;补充：&quot;</span>).strip())
+            <span class="tok-keyword">continue</span>
+        print(<span class="tok-string">&quot;待审批：&quot;</span>, payload)
         <span class="tok-keyword">while</span> <span class="tok-keyword">True</span>:
             answer = input(<span class="tok-string">&quot;批准退款？输入 y 或 n：&quot;</span>).strip().lower()
             <span class="tok-keyword">if</span> answer <span class="tok-keyword">in</span> (<span class="tok-string">&quot;y&quot;</span>, <span class="tok-string">&quot;n&quot;</span>):
                 <span class="tok-keyword">break</span>
             print(<span class="tok-string">&quot;请输入 y 或 n。&quot;</span>)
-<span class="focus-line">        result = app.invoke(Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>)), config=config)</span>
+        pending = Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>))
     print(<span class="tok-string">&quot;状态：&quot;</span>, result[<span class="tok-string">&quot;status&quot;</span>])
-    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])
-</code></pre></div></div><div class="notes"><p><b>01 / 组件</b>模型提取字段；工具查本地订单；Python 规则判断资格；状态图负责路由；检查点支持人工审批的暂停与恢复。</p><p><b>02 / 逻辑</b>只有符合规则的订单才进入审批；批准后模拟退款，成功和失败是不同结果。模型不负责决定退款资格。</p></div><!-- guide:start --><div class="coder-guide"><h3>从程序员的视角：边设计边对照代码</h3><p>先看左边要解决的问题，再看右边源码。以下片段按设计顺序排列，来自同一个 s09 文件，并非独立可运行程序。</p><div class="guide-step"><div><h4>01 · 先确定数据</h4><p>哪些信息需要在节点之间传递？把用户原文、提取结果、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。</p></div><pre><code><span class="tok-keyword">class</span> RefundState(TypedDict):
+    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])</code></pre></div></div><div class="notes"><p><b>01 / 组件</b>模型提取订单号和原因；<code>interrupt</code> 负责追问和审批暂停；工具查本地订单；Python 规则判断资格；状态图负责路由；检查点记住追问和审批停在哪一步。</p><p><b>02 / 逻辑</b>两项都齐才查单。缺订单号或原因时固定追问 3 步，把补充合并进已有字段；满 3 步仍缺才结束。只有符合规则的订单才进入审批。批准后模拟退款，成功和失败是不同结果。模型不决定退款资格。</p></div><!-- guide:start --><div class="coder-guide"><h3>从程序员的视角：边设计边对照代码</h3><p>先看左边要解决的问题，再看右边源码。以下片段按设计顺序排列，来自同一个 s09 文件，并非独立可运行程序。</p><div class="guide-step"><div><h4>01 · 先确定数据</h4><p>哪些信息需要在节点之间传递？把用户原文、提取结果、追问次数、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。</p></div><pre><code><span class="tok-keyword">class</span> RefundState(TypedDict):
     user_text: str
     order_id: NotRequired[str | <span class="tok-keyword">None</span>]
     reason: NotRequired[str | <span class="tok-keyword">None</span>]
+    clarify_turns: NotRequired[int]
     order: NotRequired[Order | <span class="tok-keyword">None</span>]
     status: NotRequired[str]
     result: NotRequired[str]</code></pre></div><div class="guide-step"><div><h4>02 · 约束模型输出</h4><p>模型只负责从用户原文中提取订单号和原因；这两个字段是模型的输出契约，不是整个图的状态。</p></div><pre><code><span class="tok-keyword">class</span> RefundRequest(BaseModel):
@@ -617,17 +706,49 @@ builder = StateGraph(RefundState)
     order_id: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;订单号；未提供时为 null&quot;</span>)
     reason: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;退款原因；未提供时为 null&quot;</span>)
 
-extractor = llm.with_structured_output(RefundRequest)</code></pre></div><div class="guide-step"><div><h4>03 · 实现提取节点</h4><p>节点接收当前状态，调用模型，再返回需要写回状态的字段。类型检查后，后续逻辑才能按 RefundRequest 读取属性。</p></div><pre><code><span class="tok-keyword">def</span> extract_request(state: RefundState) -&gt; dict:
-    request = extractor.invoke(state[<span class="tok-string">&quot;user_text&quot;</span>])
-    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(request, RefundRequest):
-        <span class="tok-keyword">raise</span> TypeError(<span class="tok-string">f&quot;expected RefundRequest, got {type(request).__name__}&quot;</span>)
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: request.order_id, <span class="tok-string">&quot;reason&quot;</span>: request.reason}</code></pre></div><div class="guide-step"><div><h4>04 · 把判断和动作分开</h4><p>先判断字段是否齐全：返回的 lookup / missing 是图中注册的节点名；缺信息节点只负责写入结果。</p></div><pre><code><span class="tok-keyword">def</span> route_request(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;missing&quot;</span>]:
-    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;order_id&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip() <span class="tok-keyword">or</span> <span class="tok-keyword">not</span> (state.get(<span class="tok-string">&quot;reason&quot;</span>) <span class="tok-keyword">or</span> <span class="tok-string">&quot;&quot;</span>).strip():
-        <span class="tok-keyword">return</span> <span class="tok-string">&quot;missing&quot;</span>
-    <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+extractor = llm.with_structured_output(RefundRequest)</code></pre></div><div class="guide-step"><div><h4>03 · 实现提取节点</h4><p>节点接收当前状态，调用模型，再返回需要写回状态的字段。空字符串当成没提供。</p></div><pre><code><span class="tok-keyword">def</span> extract_request(state: RefundState) -&gt; dict:
+    request = _read_request(state[<span class="tok-string">&quot;user_text&quot;</span>])
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: _filled(request.order_id), <span class="tok-string">&quot;reason&quot;</span>: _filled(request.reason)}</code></pre></div><div class="guide-step"><div><h4>04 · 缺信息就追问三步</h4><p>route_request 发现订单号或原因缺失时进入 clarify，不直接结束。clarify 用 interrupt 暂停，把用户补充合并进已有字段。未满 3 步回到 clarify；满 3 步后齐了去 lookup，仍缺才写入 missing。</p></div><pre><code><span class="tok-keyword">def</span> route_request(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;clarify&quot;</span>]:
+    <span class="tok-keyword">if</span> _complete(state):
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;clarify&quot;</span>
+
+<span class="tok-keyword">def</span> clarify(state: RefundState) -&gt; dict:
+    reply = interrupt({
+        <span class="tok-string">&quot;kind&quot;</span>: <span class="tok-string">&quot;clarify&quot;</span>,
+        <span class="tok-string">&quot;turn&quot;</span>: state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) + <span class="tok-number">1</span>,
+        <span class="tok-string">&quot;question&quot;</span>: _clarify_question(state),
+    })
+    text = reply.strip() <span class="tok-keyword">if</span> isinstance(reply, str) <span class="tok-keyword">else</span> <span class="tok-string">&quot;&quot;</span>
+    order_id = _filled(state.get(<span class="tok-string">&quot;order_id&quot;</span>))
+    reason = _filled(state.get(<span class="tok-string">&quot;reason&quot;</span>))
+    <span class="tok-keyword">if</span> text:
+        request = _read_request(
+            <span class="tok-string">&quot;只提取用户明确说出的订单号和退款原因，没说到的保持为空，不要猜测。\n&quot;</span>
+            f&quot;已有订单号：{order_id <span class="tok-keyword">or</span> <span class="tok-string">&#x27;无&#x27;</span>}\n&quot;
+            f&quot;已有原因：{reason <span class="tok-keyword">or</span> <span class="tok-string">&#x27;无&#x27;</span>}\n&quot;
+            f&quot;用户补充：{text}&quot;
+        )
+        order_id = _filled(request.order_id) <span class="tok-keyword">or</span> order_id
+        reason = _filled(request.reason) <span class="tok-keyword">or</span> reason
+    <span class="tok-keyword">return</span> {
+        <span class="tok-string">&quot;user_text&quot;</span>: text,
+        <span class="tok-string">&quot;order_id&quot;</span>: order_id,
+        <span class="tok-string">&quot;reason&quot;</span>: reason,
+        <span class="tok-string">&quot;clarify_turns&quot;</span>: state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) + <span class="tok-number">1</span>,
+    }
+
+<span class="tok-keyword">def</span> route_clarify(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;clarify&quot;</span>, <span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;missing&quot;</span>]:
+    <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;clarify_turns&quot;</span>, <span class="tok-number">0</span>) &lt; CLARIFY_TURNS:
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;clarify&quot;</span>
+    <span class="tok-keyword">if</span> _complete(state):
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;lookup&quot;</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;missing&quot;</span>
 
 <span class="tok-keyword">def</span> missing_info(state: RefundState) -&gt; dict:
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;missing_info&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;请提供订单号和退款原因后重新申请。&quot;</span>}</code></pre></div><div class="guide-step"><div><h4>05 · 查订单并检查规则</h4><p>工具查本地订单，节点写入状态；确定性代码判断订单是否存在、已支付且未超过 30 天。模型不决定能否退款。</p></div><pre><code><span class="tok-keyword">@</span>tool
+    missing = [name <span class="tok-keyword">for</span> name, value <span class="tok-keyword">in</span> ((<span class="tok-string">&quot;订单号&quot;</span>, _filled(state.get(<span class="tok-string">&quot;order_id&quot;</span>))), (<span class="tok-string">&quot;退款原因&quot;</span>, _filled(state.get(<span class="tok-string">&quot;reason&quot;</span>)))) <span class="tok-keyword">if</span> value <span class="tok-keyword">is</span> <span class="tok-keyword">None</span>]
+    detail = <span class="tok-string">&quot;、&quot;</span>.join(missing) <span class="tok-keyword">if</span> missing <span class="tok-keyword">else</span> <span class="tok-string">&quot;必要信息&quot;</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;missing_info&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: f&quot;追问 {CLARIFY_TURNS} 次后仍缺少{detail}，申请结束。&quot;}</code></pre></div><div class="guide-step"><div><h4>05 · 查订单并检查规则</h4><p>工具查本地订单，节点写入状态；确定性代码判断订单是否存在、已支付且未超过 30 天。模型不决定能否退款。</p></div><pre><code><span class="tok-keyword">@</span>tool
 <span class="tok-keyword">def</span> lookup_order(order_id: str) -&gt; Order | <span class="tok-keyword">None</span>:
     <span class="tok-string">&quot;&quot;&quot;根据订单号查询模拟订单，不存在返回 None。&quot;&quot;&quot;</span>
     <span class="tok-comment"># 日期相对今天构造，让练习不因日历变化而过期。</span>
@@ -662,6 +783,7 @@ extractor = llm.with_structured_output(RefundRequest)</code></pre></div><div cla
 <span class="tok-keyword">def</span> route_policy(state: RefundState) -&gt; Literal[<span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>]:
     <span class="tok-keyword">return</span> <span class="tok-string">&quot;approval&quot;</span> <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;status&quot;</span>) == <span class="tok-string">&quot;eligible&quot;</span> <span class="tok-keyword">else</span> <span class="tok-string">&quot;finish&quot;</span></code></pre></div><div class="guide-step"><div><h4>06 · 设计人工介入</h4><p>对符合规则的订单暂停；恢复时校验布尔值，再用 Command 决定执行模拟退款还是拒绝。批准不代表执行成功。</p></div><pre><code><span class="tok-keyword">def</span> approve_refund(state: RefundState) -&gt; Command[Literal[<span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>]]:
     decision = interrupt({
+        <span class="tok-string">&quot;kind&quot;</span>: <span class="tok-string">&quot;approval&quot;</span>,
         <span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;是否批准退款？&quot;</span>,
         <span class="tok-string">&quot;order&quot;</span>: state.get(<span class="tok-string">&quot;order&quot;</span>),
         <span class="tok-string">&quot;reason&quot;</span>: state.get(<span class="tok-string">&quot;reason&quot;</span>),
@@ -677,11 +799,12 @@ extractor = llm.with_structured_output(RefundRequest)</code></pre></div><div cla
         <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;order is required&quot;</span>)
     <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;simulate_failure&quot;</span>]:
         <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_failed&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;审批通过，但模拟退款失败。&quot;</span>}
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_succeeded&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">f&quot;模拟退款成功：{order[&#x27;order_id&#x27;]}&quot;</span>}
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_succeeded&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: f&quot;模拟退款成功：{order[<span class="tok-string">&#x27;order_id&#x27;</span>]}&quot;}
 
 <span class="tok-keyword">def</span> reject(state: RefundState) -&gt; dict:
-    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;rejected&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;退款申请未获批准。&quot;</span>}</code></pre></div><div class="guide-step"><div><h4>07 · 将节点连成图</h4><p>先注册节点，再建立入口、条件路由和结束边。approval 通过 Command 动态跳转，所以这里不添加它到 refund / reject 的普通边。</p></div><pre><code>builder = StateGraph(RefundState)
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;rejected&quot;</span>, <span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;退款申请未获批准。&quot;</span>}</code></pre></div><div class="guide-step"><div><h4>07 · 将节点连成图</h4><p>先注册节点，再建立入口、条件路由和结束边。extract 按字段是否齐全去 lookup 或 clarify；clarify 自己决定继续追问、查单或结束。approval 通过 Command 动态跳转，所以这里不添加它到 refund / reject 的普通边。</p></div><pre><code>builder = StateGraph(RefundState)
 builder.add_node(<span class="tok-string">&quot;extract&quot;</span>, extract_request)
+builder.add_node(<span class="tok-string">&quot;clarify&quot;</span>, clarify)
 builder.add_node(<span class="tok-string">&quot;missing&quot;</span>, missing_info)
 builder.add_node(<span class="tok-string">&quot;lookup&quot;</span>, check_order)
 builder.add_node(<span class="tok-string">&quot;policy&quot;</span>, check_policy)
@@ -690,27 +813,39 @@ builder.add_node(<span class="tok-string">&quot;refund&quot;</span>, refund)
 builder.add_node(<span class="tok-string">&quot;reject&quot;</span>, reject)
 builder.add_edge(START, <span class="tok-string">&quot;extract&quot;</span>)
 builder.add_conditional_edges(<span class="tok-string">&quot;extract&quot;</span>, route_request)
+builder.add_conditional_edges(<span class="tok-string">&quot;clarify&quot;</span>, route_clarify)
 builder.add_edge(<span class="tok-string">&quot;lookup&quot;</span>, <span class="tok-string">&quot;policy&quot;</span>)
 builder.add_conditional_edges(<span class="tok-string">&quot;policy&quot;</span>, route_policy, {<span class="tok-string">&quot;approval&quot;</span>: <span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>: END})
 <span class="tok-keyword">for</span> node <span class="tok-keyword">in</span> (<span class="tok-string">&quot;missing&quot;</span>, <span class="tok-string">&quot;refund&quot;</span>, <span class="tok-string">&quot;reject&quot;</span>):
     builder.add_edge(node, END)
-app = builder.compile(checkpointer=InMemorySaver())</code></pre></div><div class="guide-step"><div><h4>08 · 调用、暂停和恢复</h4><p>创建线程、传入用户输入；出现中断就读取审批信息，再使用同一个 config 恢复。节点恢复时会从头运行到 interrupt，中断之前的副作用必须可安全重试。</p></div><pre><code><span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+app = builder.compile(checkpointer=InMemorySaver())</code></pre></div><div class="guide-step"><div><h4>08 · 调用、暂停和恢复</h4><p>同一个线程上循环 invoke。中断 kind 为 clarify 时，把补充文字作为 resume 传回；kind 为 approval 时，把 y/n 变成布尔值。节点恢复时会从头运行到 interrupt，中断之前的副作用必须可安全重试。</p></div><pre><code><span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
     config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: str(uuid4())}}
     text = input(<span class="tok-string">&quot;退款申请：&quot;</span>).strip()
     <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> text:
         <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;请输入退款申请&quot;</span>)
 
-    result = app.invoke({<span class="tok-string">&quot;user_text&quot;</span>: text}, config=config)
-    <span class="tok-keyword">if</span> result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>):
-        print(<span class="tok-string">&quot;待审批：&quot;</span>, result[<span class="tok-string">&quot;__interrupt__&quot;</span>][<span class="tok-number">0</span>].value)
+    pending: RefundState | Command = {<span class="tok-string">&quot;user_text&quot;</span>: text}
+    <span class="tok-keyword">while</span> <span class="tok-keyword">True</span>:
+        result = app.invoke(pending, config=config)
+        paused = result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>)
+        <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> paused:
+            <span class="tok-keyword">break</span>
+        payload = paused[<span class="tok-number">0</span>].value
+        <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(payload, dict):
+            <span class="tok-keyword">raise</span> TypeError(f&quot;expected interrupt payload dict, got {type(payload).__name__}&quot;)
+        <span class="tok-keyword">if</span> payload.get(<span class="tok-string">&quot;kind&quot;</span>) == <span class="tok-string">&quot;clarify&quot;</span>:
+            print(payload[<span class="tok-string">&quot;question&quot;</span>])
+            pending = Command(resume=input(<span class="tok-string">&quot;补充：&quot;</span>).strip())
+            <span class="tok-keyword">continue</span>
+        print(<span class="tok-string">&quot;待审批：&quot;</span>, payload)
         <span class="tok-keyword">while</span> <span class="tok-keyword">True</span>:
             answer = input(<span class="tok-string">&quot;批准退款？输入 y 或 n：&quot;</span>).strip().lower()
             <span class="tok-keyword">if</span> answer <span class="tok-keyword">in</span> (<span class="tok-string">&quot;y&quot;</span>, <span class="tok-string">&quot;n&quot;</span>):
                 <span class="tok-keyword">break</span>
             print(<span class="tok-string">&quot;请输入 y 或 n。&quot;</span>)
-        result = app.invoke(Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>)), config=config)
+        pending = Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>))
     print(<span class="tok-string">&quot;状态：&quot;</span>, result[<span class="tok-string">&quot;status&quot;</span>])
-    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])</code></pre></div><p><strong>最后验证：</strong>A100 分别批准和拒绝；B200 已退款，C300 超期，D400 模拟退款失败；另测未知订单和缺信息。模型可能提取错误，观察状态及实际路径。</p></div><!-- guide:end -->
-<p class="run">运行：<code>python code/s09_refund_agent.py</code> · 需要模型支持结构化输出。输入「订单 A100 商品损坏，申请退款」，审批输入 y 或 n。B200 为已退款、C300 超期、D400 模拟退款失败；也可测试未知订单及缺少订单号。</p><p class="run">示例不会实际退款；缺信息时结束本次申请，不会自动追问。内存状态不跨进程保存；本例没有订单归属认证、实际支付、持久化、幂等或异常恢复，不可直接用于生产。审批等待期间状态可能发生变化，真实系统必须在执行前重新校验并处理并发。</p></section>
+    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])</code></pre></div><p><strong>最后验证：</strong>只输入「我要退款」，应连续追问 3 步，补上 A100 和原因后才进入审批。A100 分别批准和拒绝；B200 已退款，C300 超期，D400 模拟退款失败；另测未知订单。模型可能提取错误，观察状态及实际路径。</p></div><!-- guide:end -->
+<p class="run">运行：<code>python code/s09_refund_agent.py</code> · 需要模型支持结构化输出。输入「订单 A100 商品损坏，申请退款」会直接查单，审批输入 y 或 n。只输入「我要退款」会先追问订单号、原因和确认，共 3 步，齐了才查单。B200 为已退款、C300 超期、D400 模拟退款失败；也可测试未知订单。</p><p class="run">示例不会实际退款。缺信息时先追问 3 步，仍缺才结束本次申请。内存状态不跨进程保存；本例没有订单归属认证、实际支付、持久化、幂等或异常恢复，不可直接用于生产。审批等待期间状态可能发生变化，真实系统必须在执行前重新校验并处理并发。</p></section>
 <div class="end">遇到问题时：先检查环境和 <a href="../code/s01_probe.py">连接探针</a>，再检查模型是否支持结构化输出或工具调用。完整代码在 <code>code/</code>；浏览器可能下载源码，也可以用编辑器打开。</div>
 </main></body></html>

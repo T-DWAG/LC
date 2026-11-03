@@ -25,7 +25,7 @@ HIGHLIGHTS = {
     "s05_min_graph.py": [r"^class State\(", r"^    (?:topic|joke|polished):", r"^def (?:generate_topic|write_joke|polish)\(", r"^graph = StateGraph", r"^graph\.add_(?:node|edge)", r"^result = graph\.compile"],
     "s06_calc_agent.py": [r"^model_with_tools =", r"^class MessageState", r"^    messages:Annotated", r"^    llm_calls:int", r"^def llm_call", r"^agent_builder =", r"^agent_builder\.add_(?:node|edge|conditional_edges)", r"^agent = agent_builder\.compile"],
     "s07_checkpoint.py": [r"^def call_model", r"^    msgs=", r"^    return \{\"messages\"", r"^    StateGraph\(MessagesState\)", r"^    \.add_(?:node|edge)", r"^    \.compile\(checkpointer", r"^cfg: RunnableConfig", r"^r[12]=app\.invoke"],
-    "s09_refund_agent.py": [r"^class RefundRequest", r"^class RefundState", r"^@tool", r"^def lookup_order", r"^extractor =", r"^def (?:extract_request|route_request|check_order|check_policy|route_policy|approve_refund|refund|reject)\(", r"^    decision = interrupt", r"^    return Command\(goto", r"^builder\.(?:add_node|add_edge|add_conditional_edges)", r"^app = builder\.compile", r"^    result = app\.invoke", r"^        result = app\.invoke"],
+    "s09_refund_agent.py": [r"^class RefundRequest", r"^class RefundState", r"^    clarify_turns:", r"^CLARIFY_TURNS", r"^@tool", r"^def lookup_order", r"^extractor =", r"^def (?:extract_request|route_request|clarify|route_clarify|check_order|check_policy|route_policy|approve_refund|refund|reject)\(", r"^    (?:decision|reply) = interrupt", r"^    return Command\(goto", r"^builder\.(?:add_node|add_edge|add_conditional_edges)", r"^app = builder\.compile", r"^        result = app\.invoke", r"^        if payload\.get\(\"kind\"\) == \"clarify\":"],
     "s08_hitl.py": [r"^def approval_node", r"^    decision = interrupt", r"^    return Command\(goto", r"^    StateGraph\(ApprovalState\)", r"^    \.add_(?:node|edge)", r"^    \.compile\(checkpointer", r"^paused = graph\.invoke", r"^approved = graph\.invoke", r"^rejected = graph\.invoke"],
 }
 
@@ -93,19 +93,19 @@ def sync_guide(page: str) -> str:
         return "".join(lines[begin:finish + 1]).rstrip()
 
     steps = [
-        ("01 · 先确定数据", "哪些信息需要在节点之间传递？把用户原文、提取结果、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。", excerpt("RefundState")),
+        ("01 · 先确定数据", "哪些信息需要在节点之间传递？把用户原文、提取结果、追问次数、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。", excerpt("RefundState")),
         ("02 · 约束模型输出", "模型只负责从用户原文中提取订单号和原因；这两个字段是模型的输出契约，不是整个图的状态。", excerpt("RefundRequest") + "\n\n" + 'extractor = llm.with_structured_output(RefundRequest)'),
-        ("03 · 实现提取节点", "节点接收当前状态，调用模型，再返回需要写回状态的字段。类型检查后，后续逻辑才能按 RefundRequest 读取属性。", excerpt("extract_request")),
-        ("04 · 把判断和动作分开", "先判断字段是否齐全：返回的 lookup / missing 是图中注册的节点名；缺信息节点只负责写入结果。", excerpt("route_request") + "\n\n" + excerpt("missing_info")),
+        ("03 · 实现提取节点", "节点接收当前状态，调用模型，再返回需要写回状态的字段。空字符串当成没提供。", excerpt("extract_request")),
+        ("04 · 缺信息就追问三步", "route_request 发现订单号或原因缺失时进入 clarify，不直接结束。clarify 用 interrupt 暂停，把用户补充合并进已有字段。未满 3 步回到 clarify；满 3 步后齐了去 lookup，仍缺才写入 missing。", excerpt("route_request") + "\n\n" + excerpt("clarify") + "\n\n" + excerpt("route_clarify") + "\n\n" + excerpt("missing_info")),
         ("05 · 查订单并检查规则", "工具查本地订单，节点写入状态；确定性代码判断订单是否存在、已支付且未超过 30 天。模型不决定能否退款。", excerpt("lookup_order") + "\n\n" + excerpt("check_order") + "\n\n" + excerpt("check_policy") + "\n\n" + excerpt("route_policy")),
         ("06 · 设计人工介入", "对符合规则的订单暂停；恢复时校验布尔值，再用 Command 决定执行模拟退款还是拒绝。批准不代表执行成功。", excerpt("approve_refund") + "\n\n" + excerpt("refund") + "\n\n" + excerpt("reject")),
-        ("07 · 将节点连成图", "先注册节点，再建立入口、条件路由和结束边。approval 通过 Command 动态跳转，所以这里不添加它到 refund / reject 的普通边。", between("builder = StateGraph", "app = builder.compile")),
-        ("08 · 调用、暂停和恢复", "创建线程、传入用户输入；出现中断就读取审批信息，再使用同一个 config 恢复。节点恢复时会从头运行到 interrupt，中断之前的副作用必须可安全重试。", between('if __name__ == "__main__":', '    print("结果："')),
+        ("07 · 将节点连成图", "先注册节点，再建立入口、条件路由和结束边。extract 按字段是否齐全去 lookup 或 clarify；clarify 自己决定继续追问、查单或结束。approval 通过 Command 动态跳转，所以这里不添加它到 refund / reject 的普通边。", between("builder = StateGraph", "app = builder.compile")),
+        ("08 · 调用、暂停和恢复", "同一个线程上循环 invoke。中断 kind 为 clarify 时，把补充文字作为 resume 传回；kind 为 approval 时，把 y/n 变成布尔值。节点恢复时会从头运行到 interrupt，中断之前的副作用必须可安全重试。", between('if __name__ == "__main__":', '    print("结果："')),
     ]
     output = ['<div class="coder-guide"><h3>从程序员的视角：边设计边对照代码</h3><p>先看左边要解决的问题，再看右边源码。以下片段按设计顺序排列，来自同一个 s09 文件，并非独立可运行程序。</p>']
     for title, explanation, code in steps:
         output.append(f'<div class="guide-step"><div><h4>{html.escape(title)}</h4><p>{html.escape(explanation)}</p></div><pre><code>{render_source(code, [])}</code></pre></div>')
-    output.append('<p><strong>最后验证：</strong>A100 分别批准和拒绝；B200 已退款，C300 超期，D400 模拟退款失败；另测未知订单和缺信息。模型可能提取错误，观察状态及实际路径。</p></div>')
+    output.append('<p><strong>最后验证：</strong>只输入「我要退款」，应连续追问 3 步，补上 A100 和原因后才进入审批。A100 分别批准和拒绝；B200 已退款，C300 超期，D400 模拟退款失败；另测未知订单。模型可能提取错误，观察状态及实际路径。</p></div>')
     page, count = re.subn(r'<!-- guide:start -->.*?<!-- guide:end -->', lambda _: '<!-- guide:start -->' + ''.join(output) + '<!-- guide:end -->', page, count=1, flags=re.DOTALL)
     if count != 1:
         raise RuntimeError("找不到 09 导读区域")

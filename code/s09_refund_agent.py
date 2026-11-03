@@ -1,7 +1,7 @@
-"""s09_refund_agent.py — 退款申请演示：提取、查单、规则、审批、模拟退款。
+"""s09_refund_agent.py — 退款申请演示：提取、追问、查单、规则、审批、模拟退款。
 
 项目根目录运行：python code/s09_refund_agent.py
-本例使用模拟订单和退款结果，不连接真实支付系统。
+订单号或原因缺失时追问 3 步，补齐后才查单。本例使用模拟订单和退款结果，不连接真实支付系统。
 """
 import os
 from datetime import date, timedelta
@@ -40,9 +40,13 @@ class RefundState(TypedDict):
     user_text: str
     order_id: NotRequired[str | None]
     reason: NotRequired[str | None]
+    clarify_turns: NotRequired[int]
     order: NotRequired[Order | None]
     status: NotRequired[str]
     result: NotRequired[str]
+
+
+CLARIFY_TURNS = 3
 
 
 @tool
@@ -68,21 +72,92 @@ llm = ChatOpenAI(
 extractor = llm.with_structured_output(RefundRequest)
 
 
-def extract_request(state: RefundState) -> dict:
-    request = extractor.invoke(state["user_text"])
+def _filled(value: str | None) -> str | None:
+    text = (value or "").strip()
+    return text or None
+
+
+def _complete(state: RefundState) -> bool:
+    return _filled(state.get("order_id")) is not None and _filled(state.get("reason")) is not None
+
+
+def _read_request(text: str) -> RefundRequest:
+    request = extractor.invoke(text)
     if not isinstance(request, RefundRequest):
         raise TypeError(f"expected RefundRequest, got {type(request).__name__}")
-    return {"order_id": request.order_id, "reason": request.reason}
+    return request
 
 
-def route_request(state: RefundState) -> Literal["lookup", "missing"]:
-    if not (state.get("order_id") or "").strip() or not (state.get("reason") or "").strip():
-        return "missing"
-    return "lookup"
+def extract_request(state: RefundState) -> dict:
+    request = _read_request(state["user_text"])
+    return {"order_id": _filled(request.order_id), "reason": _filled(request.reason)}
+
+
+def route_request(state: RefundState) -> Literal["lookup", "clarify"]:
+    if _complete(state):
+        return "lookup"
+    return "clarify"
+
+
+def _clarify_question(state: RefundState) -> str:
+    turn = state.get("clarify_turns", 0) + 1
+    order_id = _filled(state.get("order_id"))
+    reason = _filled(state.get("reason"))
+    if turn == 1:
+        missing = [name for name, value in (("订单号", order_id), ("退款原因", reason)) if value is None]
+        if order_id is None:
+            return f"信息不完整，缺少{'、'.join(missing)}。第 {turn}/{CLARIFY_TURNS} 步：请回复订单号。"
+        return f"信息不完整，缺少退款原因。第 {turn}/{CLARIFY_TURNS} 步：请回复退款原因。"
+    if turn == 2:
+        if reason is None:
+            return f"第 {turn}/{CLARIFY_TURNS} 步：请回复退款原因。当前订单号：{order_id or '仍缺'}。"
+        if order_id is None:
+            return f"第 {turn}/{CLARIFY_TURNS} 步：请回复订单号。当前原因：{reason}。"
+        return f"第 {turn}/{CLARIFY_TURNS} 步：已记录订单 {order_id}，原因「{reason}」。要修改请直接说，否则回复确认。"
+    return (
+        f"第 {turn}/{CLARIFY_TURNS} 步：请确认订单号 {order_id or '（仍缺）'}，"
+        f"退款原因 {reason or '（仍缺）'}。回复确认，或直接改正。"
+    )
+
+
+def clarify(state: RefundState) -> dict:
+    reply = interrupt({
+        "kind": "clarify",
+        "turn": state.get("clarify_turns", 0) + 1,
+        "question": _clarify_question(state),
+    })
+    text = reply.strip() if isinstance(reply, str) else ""
+    order_id = _filled(state.get("order_id"))
+    reason = _filled(state.get("reason"))
+    if text:
+        request = _read_request(
+            "只提取用户明确说出的订单号和退款原因，没说到的保持为空，不要猜测。\n"
+            f"已有订单号：{order_id or '无'}\n"
+            f"已有原因：{reason or '无'}\n"
+            f"用户补充：{text}"
+        )
+        order_id = _filled(request.order_id) or order_id
+        reason = _filled(request.reason) or reason
+    return {
+        "user_text": text,
+        "order_id": order_id,
+        "reason": reason,
+        "clarify_turns": state.get("clarify_turns", 0) + 1,
+    }
+
+
+def route_clarify(state: RefundState) -> Literal["clarify", "lookup", "missing"]:
+    if state.get("clarify_turns", 0) < CLARIFY_TURNS:
+        return "clarify"
+    if _complete(state):
+        return "lookup"
+    return "missing"
 
 
 def missing_info(state: RefundState) -> dict:
-    return {"status": "missing_info", "result": "请提供订单号和退款原因后重新申请。"}
+    missing = [name for name, value in (("订单号", _filled(state.get("order_id"))), ("退款原因", _filled(state.get("reason")))) if value is None]
+    detail = "、".join(missing) if missing else "必要信息"
+    return {"status": "missing_info", "result": f"追问 {CLARIFY_TURNS} 次后仍缺少{detail}，申请结束。"}
 
 
 def check_order(state: RefundState) -> dict:
@@ -112,6 +187,7 @@ def route_policy(state: RefundState) -> Literal["approval", "finish"]:
 
 def approve_refund(state: RefundState) -> Command[Literal["refund", "reject"]]:
     decision = interrupt({
+        "kind": "approval",
         "question": "是否批准退款？",
         "order": state.get("order"),
         "reason": state.get("reason"),
@@ -137,6 +213,7 @@ def reject(state: RefundState) -> dict:
 
 builder = StateGraph(RefundState)
 builder.add_node("extract", extract_request)
+builder.add_node("clarify", clarify)
 builder.add_node("missing", missing_info)
 builder.add_node("lookup", check_order)
 builder.add_node("policy", check_policy)
@@ -145,6 +222,7 @@ builder.add_node("refund", refund)
 builder.add_node("reject", reject)
 builder.add_edge(START, "extract")
 builder.add_conditional_edges("extract", route_request)
+builder.add_conditional_edges("clarify", route_clarify)
 builder.add_edge("lookup", "policy")
 builder.add_conditional_edges("policy", route_policy, {"approval": "approval", "finish": END})
 for node in ("missing", "refund", "reject"):
@@ -158,14 +236,25 @@ if __name__ == "__main__":
     if not text:
         raise ValueError("请输入退款申请")
 
-    result = app.invoke({"user_text": text}, config=config)
-    if result.get("__interrupt__"):
-        print("待审批：", result["__interrupt__"][0].value)
+    pending: RefundState | Command = {"user_text": text}
+    while True:
+        result = app.invoke(pending, config=config)
+        paused = result.get("__interrupt__")
+        if not paused:
+            break
+        payload = paused[0].value
+        if not isinstance(payload, dict):
+            raise TypeError(f"expected interrupt payload dict, got {type(payload).__name__}")
+        if payload.get("kind") == "clarify":
+            print(payload["question"])
+            pending = Command(resume=input("补充：").strip())
+            continue
+        print("待审批：", payload)
         while True:
             answer = input("批准退款？输入 y 或 n：").strip().lower()
             if answer in ("y", "n"):
                 break
             print("请输入 y 或 n。")
-        result = app.invoke(Command(resume=(answer == "y")), config=config)
+        pending = Command(resume=(answer == "y"))
     print("状态：", result["status"])
     print("结果：", result["result"])
