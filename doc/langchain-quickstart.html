@@ -131,14 +131,15 @@ const TOPICS = {
     one: "只记住：<b>Prompt 喂给 Model，Model 产出给 Parser</b>。",
     bridge: "≈ Eino：ChatTemplate → ChatModel → OutputParser。",
     code: `from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+# make_llm() 读取 .env 里的 OPENAI_*，定义见 s01_probe.py
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "用中文、一句话回答。"),
-    ("human", "{q}"),
+    ("system", "You are a helpful assistant."),
+    ("user", "explain the concept of {input}"),
 ])
-llm = ChatOpenAI(model="gpt-4o-mini")
-print((prompt | llm).invoke({"q": "什么是 LCEL"}).content)`,
+llm = make_llm()
+chain = prompt | llm
+print(chain.invoke({"input": "what is lcel"}).content)`,
     note: "先会这三样，再往下走。"
   },
   prompt: {
@@ -159,21 +160,27 @@ print(prompt.invoke({"topic": "Agent"}))`,
     lead: "唯一负责「想」的组件。",
     one: "<b>位置：</b>① 核心；后面节点里还是它。",
     bridge: "≈ Eino ChatModel。",
-    code: `from langchain_openai import ChatOpenAI
-print(ChatOpenAI(model="gpt-4o-mini").invoke("一句话解释 LangChain").content)`,
-    note: "API Key 放环境变量。"
+    code: `# make_llm() 见 s01_probe.py：从 .env 读 OPENAI_API_KEY / BASE_URL / MODEL
+llm = make_llm()
+print(llm.invoke("Hello, how are you?").content)`,
+    note: "API Key、接口地址、模型 ID 都放 .env，由 load_dotenv(override=True) 加载。"
   },
   parser: {
     title: "Parser / 结构化输出",
     lead: "下游拿到 Pydantic / dict。",
     one: "<b>位置：</b>① 出口。",
     bridge: "优先 with_structured_output。",
-    code: `from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
+    code: `from pydantic import BaseModel, Field
+
 class Brief(BaseModel):
-    title: str
-    points: list[str]
-print(ChatOpenAI(model="gpt-4o-mini").with_structured_output(Brief).invoke("总结 LCEL"))`,
+    title: str = Field(description="短标题")
+    points: list[str] = Field(description="3条要点")
+
+llm = make_llm().with_structured_output(Brief)
+result = llm.invoke("请总结一下《三体》系列小说的核心内容")
+if not isinstance(result, Brief):  # 类型收窄，也挡住意外返回
+    raise TypeError(f"expected Brief, got {type(result).__name__}")
+print(result.title, result.points)`,
     note: "别手抠 JSON。"
   },
   lcel: {
@@ -192,7 +199,7 @@ print(chain.invoke({"q": "什么是 LCEL"}))`,
     bridge: "官方：docs.langchain.com/oss/python/langchain/knowledge-base",
     code: `from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_openai import OpenAIEmbeddings  # make_llm() 见 s01_probe.py
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -222,7 +229,7 @@ retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"
 prompt = ChatPromptTemplate.from_template(
     "只根据资料回答。\\n资料:{context}\\n问题:{question}"
 )
-llm = ChatOpenAI(model="gpt-4o-mini")
+llm = make_llm()
 
 q = "LCEL 怎么串组件？"
 ctx = "\\n".join(d.page_content for d in retriever.invoke(q))
@@ -303,8 +310,14 @@ answer = (prompt | llm).invoke({"context": ctx, "question": q})`,
     lead: "Model ⇄ Tools，直到最终答案。",
     one: "<b>相对 LCEL：</b>走一遍 → while。",
     bridge: "完整脚本见组合实例 C。",
-    code: `agent = create_react_agent(llm, tools=[...])
-agent.invoke({"messages": [("user", "12*8=?")]})`,
+    code: `from langgraph.prebuilt import create_react_agent
+
+agent = create_react_agent(make_llm(), tools=[add, multiply])
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "先算 3+4，再把结果乘以 2，只给最终数字"}]}
+)
+for m in result["messages"]:
+    m.pretty_print()`,
     note: "bind_tools 只声明；执行在循环里。"
   },
   tools: {
@@ -315,7 +328,7 @@ agent.invoke({"messages": [("user", "12*8=?")]})`,
     code: `from langchain_core.tools import tool
 @tool
 def add(a: int, b: int) -> int:
-    """两数相加。"""
+    """add a and b"""
     return a + b`,
     note: "bind_tools ≠ 自动执行。"
   },
@@ -335,9 +348,11 @@ app = g.compile(checkpointer=...)`,
     lead: "按 thread_id 存短状态：续聊、挂起、回退的前提。",
     one: "<b>相对 Graph：</b>没它每次 invoke 都失忆。",
     bridge: "≈ Eino checkpoint。",
-    code: `app = graph.compile(checkpointer=MemorySaver())
+    code: `from langgraph.checkpoint.memory import InMemorySaver
+
+app = graph.compile(checkpointer=InMemorySaver())
 cfg = {"configurable": {"thread_id": "u1"}}
-app.invoke(inputs, cfg)`,
+app.invoke(inputs, config=cfg)`,
     note: "这是线程级短记忆，不是跨会话画像。"
   },
   hitl: {

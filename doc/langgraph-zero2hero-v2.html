@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LangGraph · 生产环境篇</title>
+<style>
+:root{color-scheme:light;--ink:#202423;--muted:#737d78;--line:#e6eae7;--soft:#f6f8f6;--accent:#486e5d}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:#fff;font:15px/1.75 system-ui,-apple-system,"Microsoft YaHei",sans-serif}main{max-width:1300px;margin:0 auto 0 200px;padding:0 32px}header{padding:80px 0 50px;border-bottom:1px solid var(--line)}.eyebrow,.num{font:12px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:var(--accent)}h1{font-size:clamp(32px,5vw,48px);line-height:1.15;letter-spacing:-.04em;margin:14px 0}header p,.muted{color:var(--muted)}header p{margin:0;max-width:640px}nav{position:fixed;inset:0 auto 0 0;width:200px;overflow:auto;display:flex;flex-direction:column;gap:3px;padding:42px 20px;border-right:1px solid var(--line);background:#fff;font-size:13px;z-index:2}nav::before{content:"目录";font-size:11px;letter-spacing:.12em;color:var(--muted);margin:0 10px 12px}nav a{padding:7px 10px;border-radius:5px}nav a:hover,nav a:focus-visible{background:var(--soft);text-decoration:none}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}section{padding:56px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px}.heading{display:flex;align-items:baseline;gap:16px;margin-bottom:22px}h2{font-size:24px;letter-spacing:-.03em;margin:0}.source{margin-left:auto;font-size:13px;white-space:nowrap}.pair{display:grid;grid-template-columns:minmax(220px, .8fr) minmax(0, 1.2fr);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:225px}.diagram{background:var(--soft);padding:24px;display:flex;align-items:center;justify-content:center;min-width:0}.flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;text-align:center}.node{border:1px solid #cdd8d1;background:#fff;border-radius:5px;padding:8px 11px;font:13px/1.4 ui-monospace,Consolas,monospace;max-width:100%;overflow-wrap:anywhere}.node.accent{border-color:#96b5a1;color:#335844;background:#f9fdf9}.arrow{color:#91a598;font-size:16px}.stack{display:flex;flex-direction:column;align-items:center;gap:6px}.small{font-size:11px;color:var(--muted);line-height:1.4}.code{min-width:0;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column}.code-label{padding:12px 18px;border-bottom:1px solid var(--line);font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--muted)}.code-label span{float:right;color:var(--accent)}pre{margin:0;padding:18px;overflow:auto;tab-size:4;font:13px/1.7 ui-monospace,Consolas,"Microsoft YaHei",monospace;color:#34443b;flex:1}.source-code{max-height:560px;overscroll-behavior:contain}.source-code code{font:inherit}.focus-line{background:#e8f3e9;box-shadow:inset 3px 0 #83aa8e;display:inline-block;min-width:100%}.tok-keyword{color:#67529c;font-weight:600}.tok-string{color:#a0653c}.tok-comment{color:#839189;font-style:italic}.tok-number{color:#557e9d}code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}p code,li code{background:var(--soft);padding:2px 4px;border-radius:3px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:22px}.notes p{margin:0;color:#59635e}.notes b{color:var(--ink);font-weight:600;margin-right:8px}.run{margin:18px 0 0;font-size:13px;color:var(--muted)}.setup{padding:38px 0;scroll-margin-top:20px}.setup h2{font-size:20px}.setup pre{background:var(--soft);border-radius:6px;margin-top:16px}.setup p{color:#59635e}.warning{border-left:2px solid #d3b675;padding-left:14px;font-size:13px}.end{padding:35px 0 70px;color:var(--muted);font-size:13px}@media(max-width:800px){main{margin:0;padding:0 20px}nav{position:sticky;top:0;width:auto;inset:auto;flex-direction:row;gap:4px;overflow-x:auto;white-space:nowrap;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line)}nav::before{display:none}nav a{padding:5px 8px}header{padding:50px 0 35px}section,.setup{scroll-margin-top:65px}.pair,.notes{grid-template-columns:1fr}.code{border-left:0;border-top:1px solid var(--line)}.diagram{min-height:170px}.heading{flex-wrap:wrap}.source{margin-left:0;width:100%}section{padding:40px 0}.notes{gap:12px}}
+</style>
+<style>.coder-guide{margin-top:36px}.coder-guide h3{margin:0 0 8px;font-size:19px}.coder-guide>p{color:#59635e}.guide-step{display:grid;grid-template-columns:minmax(180px,.75fr) minmax(0,1.25fr);border-top:1px solid var(--line)}.guide-step>div{padding:20px 22px 20px 0}.guide-step h4{font-size:14px;margin:0 0 8px;color:var(--accent)}.guide-step p{margin:0;color:#59635e}.guide-step pre{background:var(--soft);max-height:440px;margin:12px 0;border-radius:5px}.guide-step code{font:inherit}@media(max-width:800px){.guide-step{grid-template-columns:1fr}.guide-step>div{padding:18px 0 0}.guide-step pre{margin:12px 0 18px}}.callchain{margin-top:16px;border:1px solid var(--line);border-radius:8px;background:var(--soft);padding:22px 16px 28px}.callchain h3{margin:0 0 6px;font-size:15px}.callchain>.lead{margin:0 0 18px;color:#59635e;font-size:13px}.cc{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}.cc-node{border:1px solid #cdd8d1;background:#fff;border-radius:5px;padding:7px 10px;font:12px/1.45 ui-monospace,Consolas,monospace;text-align:center;max-width:100%}.cc-node.accent{border-color:#96b5a1;color:#335844;background:#f9fdf9}.cc-cond{font:12px/1.45 ui-monospace,Consolas,monospace;color:#335844;background:#fff;border:1px dashed #96b5a1;border-radius:5px;padding:5px 8px;text-align:center;max-width:100%}.branch .fork-2,.branch .fork-3{grid-template-columns:1fr}.cc-note{font-size:11px;line-height:1.4;color:var(--muted);text-align:center}.cc-arrow{color:#91a598;font-size:14px;line-height:1}.fork{display:grid;gap:14px;width:100%;margin-top:2px}.fork-2{grid-template-columns:1fr 1fr}.fork-3{grid-template-columns:1fr 1fr 1fr}.branch{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:10px 8px 0;border-top:1px solid #d5e0da}</style>
+<style>.docs{margin:14px 0 0;padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-size:14px}.docs b{display:block;margin-bottom:4px}.docs a{color:var(--accent)}table.cmp{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}table.cmp th,table.cmp td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}table.cmp th{background:var(--soft)}</style>
+</head>
+<body><nav aria-label="章节"><a href="#setup">准备</a><a href="#map">问题地图</a><a href="#s10">10 持久化恢复</a><a href="#s11">11 退款上线</a><a href="#s12">12 不可信输出</a><a href="#s13">13 步数预算</a><a href="#s14">14 长对话</a><a href="#s15">15 成本护栏</a><a href="#check">上线清单</a></nav><main>
+<header><div class="eyebrow">LANGGRAPH · PRODUCTION · 第二版</div><h1>把 Agent 带进生产环境</h1><p>第一版（<a href="langgraph-zero2hero.html">langgraph-zero2hero.html</a>）的 09 节只是演示：内存状态、无重试、无上限。本篇从生产中反复出现的问题出发，先读官方文档，再给能运行的最小示例。</p></header>
+<div class="setup" id="setup"><h2>开始之前</h2><p>示例 s10 到 s15 都会真实调用模型，先按 <code>code/s00_env.md</code> 在根目录 <code>.env</code> 配好 <code>OPENAI_API_KEY</code>、<code>OPENAI_BASE_URL</code>、<code>OPENAI_MODEL</code>。另外需要 <code>langgraph&gt;=1.2</code>（节点级 <code>error_handler</code> 要求此版本）和 SQLite 检查点包。</p><pre>python -m pip install -U "langgraph&gt;=1.2" langgraph-checkpoint-sqlite langchain-openai langchain-core python-dotenv</pre><p>以下命令均在项目根目录执行。官方链接以 docs.langchain.com/oss/python/langgraph 为准，版本变化时以官方为准。</p></div>
+<section id="map"><div class="heading"><span class="num">00</span><h2>生产问题地图</h2></div><p>第一版 s09 自己点明了缺口：「没有持久化、幂等或异常恢复」。下表把缺口抽象成四类问题，并对应官方机制。</p><table class="cmp"><tr><th>生产问题</th><th>s09 现状</th><th>官方机制 / 做法</th><th>本篇</th></tr><tr><td>进程重启后审批状态丢失</td><td><code>InMemorySaver</code></td><td>持久化 checkpointer（<code>SqliteSaver</code> / <code>PostgresSaver</code>）</td><td>s10</td></tr><tr><td>外部接口瞬时故障</td><td>直接抛错，整图失败</td><td><code>RetryPolicy</code>，且只重试可安全重试的错误</td><td>s11</td></tr><tr><td>响应超时，不知道钱退没退</td><td>无处理</td><td>幂等键 + <code>error_handler</code> 标记未知并转对账</td><td>s11</td></tr><tr><td>审批期间世界变了</td><td>按审批时快照执行</td><td>执行前重新读取最新状态</td><td>s11</td></tr><tr><td>模型输出的值业务上不成立</td><td>直接信任</td><td>代码校验，带原因回灌重试，仍不行转人工</td><td>s12</td></tr><tr><td>Agent 循环烧钱</td><td>无上限</td><td><code>RemainingSteps</code> 提前改道收尾</td><td>s13</td></tr><tr><td>长会话成本与关键信息丢失</td><td>全量历史</td><td>窗口 + 钉住事实</td><td>s14</td></tr><tr><td>无人知道会话花了多少</td><td>无统计</td><td>用量累加进状态，调用前检查</td><td>s15</td></tr><tr><td>模型服务不可用</td><td>整条流程报错</td><td>模型节点单独重试与转人工</td><td>s11</td></tr></table><div class="docs"><b>本篇读过的官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/persistence">Persistence</a>　<a href="https://docs.langchain.com/oss/python/langgraph/interrupts">Interrupts</a>　<a href="https://docs.langchain.com/oss/python/langgraph/fault-tolerance">Fault tolerance</a>　<a href="https://docs.langchain.com/oss/python/langgraph/graph-api-nodes">Configure nodes</a>　<a href="https://docs.langchain.com/oss/python/langgraph/graph-api-control-flow">Control flow</a></div></section>
+<section id="s10"><div class="heading"><span class="num">10</span><h2>持久化恢复：进程退出后继续审批</h2><a class="source" href="../code/s10_sqlite_resume.py">s10_sqlite_resume.py ↗</a></div><div class="docs"><b>先读官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/persistence">Persistence ↗</a>　<a href="https://docs.langchain.com/oss/python/langgraph/interrupts">Interrupts ↗</a>　</div><div class="pair"><div class="diagram" role="img" aria-label="第一个进程跑到审批暂停并写入数据库，第二个进程按同一 thread_id 读取并继续"><div class="stack"><div class="node">进程 A · start</div><div class="arrow">↓</div><div class="node accent">draft · 模型写审批摘要</div><div class="arrow">↓</div><div class="node accent">approval · interrupt 暂停</div><div class="arrow">↓ 写检查点</div><div class="node accent">SQLite · thread_id</div><div class="small">进程 A 退出</div><div class="arrow">↓ 读检查点</div><div class="node">进程 B · resume</div><div class="arrow">↓ Command(resume)</div><div class="node accent">done / cancel</div></div></div><div class="code"><div class="code-label">完整代码 · s10_sqlite_resume.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s10_sqlite_resume.py — 持久化检查点：模型起草审批摘要，进程退出后仍可按 thread_id 恢复审批。</span>
+
+<span class="tok-string">用法（项目根目录，分两次运行，中间进程已退出）：</span>
+<span class="tok-string">  python code/s10_sqlite_resume.py start  order-1</span>
+<span class="tok-string">  python code/s10_sqlite_resume.py resume order-1 y</span>
+<span class="tok-string">需要模型服务（.env 见 s00_env.md）。检查点写入 code/s10_demo.sqlite，演示完可直接删除。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> os
+<span class="tok-keyword">import</span> sys
+<span class="tok-keyword">from</span> pathlib <span class="tok-keyword">import</span> Path
+<span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Literal
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.checkpoint.sqlite <span class="tok-keyword">import</span> SqliteSaver
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, StateGraph
+<span class="tok-keyword">from</span> langgraph.types <span class="tok-keyword">import</span> Command, interrupt
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> NotRequired, TypedDict
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+DB_PATH = Path(__file__).with_name(<span class="tok-string">&quot;s10_demo.sqlite&quot;</span>)
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> make_llm(*, temperature: float = <span class="tok-number">0.0</span>) -&gt; ChatOpenAI:</span>
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+        temperature=temperature,
+    )
+
+
+<span class="tok-keyword">class</span> State(TypedDict):
+    request: str
+    summary: NotRequired[str]
+    result: NotRequired[str]
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> draft(state: State) -&gt; dict:</span>
+    <span class="tok-comment"># 模型调用单独成节点：它完成后检查点已保存，恢复时不会重新调用（省钱，也避免摘要变化）。</span>
+<span class="focus-line">    msg = make_llm().invoke(<span class="tok-string">f&quot;用一句话向审批人概括这条退款申请，不要编造信息：{state[&#x27;request&#x27;]}&quot;</span>)</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;summary&quot;</span>: str(msg.content)}
+
+
+<span class="tok-keyword">def</span> approval(state: State) -&gt; Command[Literal[<span class="tok-string">&quot;done&quot;</span>, <span class="tok-string">&quot;cancel&quot;</span>]]:
+    <span class="tok-comment"># 恢复时本节点会从头重跑，所以 interrupt 之前不要放有副作用的操作。</span>
+<span class="focus-line">    ok = interrupt({<span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;是否批准？&quot;</span>, <span class="tok-string">&quot;summary&quot;</span>: state[<span class="tok-string">&quot;summary&quot;</span>]})</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> Command(goto=<span class="tok-string">&quot;done&quot;</span> <span class="tok-keyword">if</span> ok <span class="tok-keyword">else</span> <span class="tok-string">&quot;cancel&quot;</span>)</span>
+
+
+<span class="tok-keyword">def</span> done(state: State) -&gt; dict:
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;已批准&quot;</span>}
+
+
+<span class="tok-keyword">def</span> cancel(state: State) -&gt; dict:
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;result&quot;</span>: <span class="tok-string">&quot;已拒绝&quot;</span>}
+
+
+builder = StateGraph(State)
+builder.add_node(<span class="tok-string">&quot;draft&quot;</span>, draft)
+builder.add_node(<span class="tok-string">&quot;approval&quot;</span>, approval)
+builder.add_node(<span class="tok-string">&quot;done&quot;</span>, done)
+builder.add_node(<span class="tok-string">&quot;cancel&quot;</span>, cancel)
+builder.add_edge(START, <span class="tok-string">&quot;draft&quot;</span>)
+builder.add_edge(<span class="tok-string">&quot;draft&quot;</span>, <span class="tok-string">&quot;approval&quot;</span>)
+builder.add_edge(<span class="tok-string">&quot;done&quot;</span>, END)
+builder.add_edge(<span class="tok-string">&quot;cancel&quot;</span>, END)
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    mode, thread_id = sys.argv[<span class="tok-number">1</span>], sys.argv[<span class="tok-number">2</span>]
+    config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: thread_id}}
+    <span class="tok-comment"># from_conn_string 是上下文管理器：退出 with 时连接关闭。</span>
+<span class="focus-line">    <span class="tok-keyword">with</span> SqliteSaver.from_conn_string(str(DB_PATH)) <span class="tok-keyword">as</span> saver:</span>
+<span class="focus-line">        app = builder.compile(checkpointer=saver)</span>
+        <span class="tok-keyword">if</span> mode == <span class="tok-string">&quot;start&quot;</span>:
+<span class="focus-line">            result = app.invoke({<span class="tok-string">&quot;request&quot;</span>: <span class="tok-string">&quot;订单 A100 商品损坏，申请退款&quot;</span>}, config)</span>
+        <span class="tok-keyword">else</span>:
+<span class="focus-line">            result = app.invoke(Command(resume=sys.argv[<span class="tok-number">3</span>] == <span class="tok-string">&quot;y&quot;</span>), config)</span>
+        paused = result.get(<span class="tok-string">&quot;__interrupt__&quot;</span>)
+        print(<span class="tok-string">&quot;暂停：&quot;</span> <span class="tok-keyword">if</span> paused <span class="tok-keyword">else</span> <span class="tok-string">&quot;结果：&quot;</span>, paused[<span class="tok-number">0</span>].value <span class="tok-keyword">if</span> paused <span class="tok-keyword">else</span> result[<span class="tok-string">&quot;result&quot;</span>])
+<span class="focus-line">        print(<span class="tok-string">&quot;下一步节点：&quot;</span>, app.get_state(config).next)</span>
+</code></pre></div></div><div class="notes"><p><b>01 / 组件</b><code>SqliteSaver</code> 把检查点写到文件，换进程仍能读到；<code>thread_id</code> 是找回状态的唯一钥匙。</p><p><b>02 / 逻辑</b><code>start</code> 先由模型起草摘要，再在 <code>interrupt</code> 暂停并退出；<code>resume</code> 在新进程里用同一 <code>thread_id</code> 传入 <code>Command(resume=...)</code>。模型调用单独放在 <code>draft</code> 节点，它完成后检查点已保存，恢复时不会重新调用模型。传错 thread 则没有可恢复的状态。</p><p><b>03 / 官方要点</b><code>interrupt</code> 的 payload 必须可 JSON 序列化；恢复时节点从头重跑到中断处，所以中断前的副作用要幂等。</p></div><p class="run">运行：<code>python code/s10_sqlite_resume.py start order-1</code>，再 <code>python code/s10_sqlite_resume.py resume order-1 y</code> · 需要模型服务 · 演示后删除 <code>code/s10_demo.sqlite</code>。单机用 SQLite，多实例部署换 <code>PostgresSaver</code>。</p></section>
+<section id="s11"><div class="heading"><span class="num">11</span><h2>退款上线：重试、幂等与兜底</h2><a class="source" href="../code/s11_refund_prod.py">s11_refund_prod.py ↗</a></div><div class="docs"><b>先读官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/fault-tolerance">Fault tolerance</a>　<a href="https://docs.langchain.com/oss/python/langgraph/graph-api-nodes">Configure nodes</a>　<a href="https://docs.langchain.com/oss/python/langgraph/interrupts">Interrupts</a></div><h3>先看业务：五个会在线上出现的情况</h3><table class="cmp"><tr><th>#</th><th>业务上发生了什么</th><th>不处理的后果</th><th>本例的做法</th></tr><tr><td>1</td><td>支付网关偶发 502，几秒后恢复</td><td>用户看到「退款失败」，客服收到投诉，其实重试一次就成功</td><td><code>RetryPolicy</code>，只重试明确「没处理」的网关错误</td></tr><tr><td>2</td><td>网关已经退款，但响应超时没回来</td><td>调用方以为失败而重试或让用户重新申请，<b>同一单退两次钱</b></td><td>幂等键 <code>refund-订单号</code>，网关按键去重；重试变安全</td></tr><tr><td>3</td><td>网关持续不可用，重试用尽</td><td>标成「失败」会误导：不知道钱到底退没退</td><td><code>error_handler</code> 标 <code>refund_unknown</code>，附幂等键转对账</td></tr><tr><td>4</td><td>审批排了几小时，期间订单已在别处退掉</td><td>按审批时的快照执行，重复退款</td><td>审批后<b>执行前重新读取</b>订单状态（<code>recheck</code>）</td></tr><tr><td>5</td><td>模型服务宕机或限流</td><td>整条退款流程报错，用户连申请都提交不了</td><td>模型节点单独重试，仍失败就转人工并留存原文</td></tr></table><h3>再看判断：什么错误能重试</h3><table class="cmp"><tr><th>错误类型</th><th>含义</th><th>能不能重试</th><th>怎么处理</th></tr><tr><td><code>GatewayUnavailable</code></td><td>网关明确说「没处理」（502、连接被拒）</td><td>能，无副作用</td><td>重试</td></tr><tr><td><code>GatewayTimeout</code></td><td>不知道网关有没有处理</td><td>只有带幂等键才能</td><td>重试 + 幂等键；用尽转对账</td></tr><tr><td><code>ValueError</code> 等本地错误</td><td>我们自己的 bug 或数据问题</td><td>不能，重试不会变好</td><td>让它抛出，被监控发现</td></tr><tr><td><code>interrupt</code></td><td>等待人，不是故障</td><td>不适用</td><td>不进重试也不进错误处理，照常暂停</td></tr></table><div class="pair"><div class="diagram" role="img" aria-label="退款流程中的重试、复核和兜底位置"><div class="stack"><div class="node accent">extract · 模型</div><div class="small">失败 → 重试 → 转人工</div><div class="arrow">↓</div><div class="node">lookup 查单</div><div class="arrow">↓</div><div class="node accent">approval · interrupt（可能等几小时）</div><div class="arrow">↓ 批准</div><div class="node accent">recheck · 重新读订单</div><div class="small">已变化 → finish</div><div class="arrow">↓ 生成幂等键</div><div class="node accent">charge · 调网关</div><div class="small">重试 3 次 → 仍失败：refund_unknown 转对账</div></div></div><div class="code"><div class="code-label">完整代码 · s11_refund_prod.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s11_refund_prod.py — 退款审批的生产化：把 s09 里「演示可以忽略」的问题逐个补上。</span>
+
+<span class="tok-string">项目根目录运行：python code/s11_refund_prod.py</span>
+<span class="tok-string">需要模型服务（.env 见 s00_env.md）和 langgraph&gt;=1.2。支付网关是本文件内的模拟类。</span>
+
+<span class="tok-string">生产里最危险的一步不是调模型，而是「审批通过后调支付网关」：</span>
+<span class="tok-string">  1. 网关偶发 502，重试就能成功；</span>
+<span class="tok-string">  2. 网关已扣款但响应超时——调用方不知道钱到底退了没有；</span>
+<span class="tok-string">  3. 审批等了几小时，订单在别处已被退掉；</span>
+<span class="tok-string">  4. 模型服务自己也会挂，不应拖垮整条流程。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> copy
+<span class="tok-keyword">import</span> os
+<span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Literal
+
+<span class="tok-keyword">import</span> openai
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.checkpoint.memory <span class="tok-keyword">import</span> InMemorySaver
+<span class="tok-keyword">from</span> langgraph.errors <span class="tok-keyword">import</span> NodeError
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, StateGraph
+<span class="tok-keyword">from</span> langgraph.types <span class="tok-keyword">import</span> Command, RetryPolicy, interrupt
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> BaseModel, Field, SecretStr
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> NotRequired, TypedDict
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+
+
+<span class="tok-comment"># ---------- 外部世界：订单库与支付网关（模拟） ----------</span>
+ORDERS0 = {<span class="tok-string">&quot;A100&quot;</span>: {<span class="tok-string">&quot;order_id&quot;</span>: <span class="tok-string">&quot;A100&quot;</span>, <span class="tok-string">&quot;amount&quot;</span>: <span class="tok-number">199</span>, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;paid&quot;</span>}}
+ORDERS = copy.deepcopy(ORDERS0)
+
+
+<span class="tok-keyword">class</span> GatewayUnavailable(Exception):
+    <span class="tok-string">&quot;&quot;&quot;网关明确没处理：502/503/连接被拒。重试安全。&quot;&quot;&quot;</span>
+
+
+<span class="focus-line"><span class="tok-keyword">class</span> GatewayTimeout(Exception):</span>
+    <span class="tok-string">&quot;&quot;&quot;读超时：网关可能已经处理了。重试只有在幂等键保护下才安全。&quot;&quot;&quot;</span>
+
+
+<span class="tok-keyword">class</span> FakeGateway:
+    <span class="tok-keyword">def</span> reset(self, mode: str) -&gt; <span class="tok-keyword">None</span>:
+        self.mode, self.calls, self.ledger = mode, <span class="tok-number">0</span>, {}
+
+    <span class="tok-keyword">def</span> refund(self, key: str, order_id: str, amount: int) -&gt; dict:
+        self.calls += <span class="tok-number">1</span>
+        <span class="tok-keyword">if</span> self.mode == <span class="tok-string">&quot;down&quot;</span> <span class="tok-keyword">or</span> (self.mode == <span class="tok-string">&quot;flaky&quot;</span> <span class="tok-keyword">and</span> self.calls &lt; <span class="tok-number">3</span>):
+            <span class="tok-keyword">raise</span> GatewayUnavailable(<span class="tok-string">&quot;502 Bad Gateway&quot;</span>)
+<span class="focus-line">        <span class="tok-keyword">if</span> key <span class="tok-keyword">in</span> self.ledger:  <span class="tok-comment"># 幂等：同一个 key 只生效一次，重复请求返回原结果</span></span>
+            <span class="tok-keyword">return</span> self.ledger[key]
+        self.ledger[key] = {<span class="tok-string">&quot;order_id&quot;</span>: order_id, <span class="tok-string">&quot;amount&quot;</span>: amount}
+        <span class="tok-keyword">if</span> self.mode == <span class="tok-string">&quot;timeout_after_commit&quot;</span> <span class="tok-keyword">and</span> self.calls == <span class="tok-number">1</span>:
+            <span class="tok-keyword">raise</span> GatewayTimeout(<span class="tok-string">&quot;read timeout&quot;</span>)  <span class="tok-comment"># 钱已退，响应丢了</span>
+        <span class="tok-keyword">return</span> self.ledger[key]
+
+
+GATEWAY = FakeGateway()
+
+
+<span class="tok-comment"># ---------- 模型 ----------</span>
+<span class="tok-keyword">class</span> RefundRequest(BaseModel):
+    <span class="tok-string">&quot;&quot;&quot;提取用户提供的内容，不要猜测未提供的信息。&quot;&quot;&quot;</span>
+
+    order_id: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;订单号；未提供时为 null&quot;</span>)
+    reason: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;退款原因；未提供时为 null&quot;</span>)
+
+
+<span class="tok-keyword">def</span> make_llm(base_url: str | <span class="tok-keyword">None</span> = <span class="tok-keyword">None</span>) -&gt; ChatOpenAI:
+<span class="focus-line">    <span class="tok-comment"># max_retries=0：重试只在图这一层做，避免客户端和图两层叠加成 3×3 次。</span></span>
+    <span class="tok-keyword">return</span> ChatOpenAI(
+        model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+        api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+        base_url=base_url <span class="tok-keyword">or</span> os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+        temperature=<span class="tok-number">0</span>,
+<span class="focus-line">        max_retries=<span class="tok-number">0</span>,</span>
+        timeout=<span class="tok-number">15</span>,
+    )
+
+
+<span class="tok-comment"># ---------- 图 ----------</span>
+<span class="tok-keyword">class</span> State(TypedDict):
+    user_text: str
+    order_id: NotRequired[str]
+    reason: NotRequired[str]
+    amount: NotRequired[int]
+    refund_key: NotRequired[str]
+    status: NotRequired[str]
+    note: NotRequired[str]
+
+
+MODEL_URL: str | <span class="tok-keyword">None</span> = <span class="tok-keyword">None</span>  <span class="tok-comment"># 场景 5 把它指向不可达地址，模拟模型服务宕机</span>
+
+
+<span class="tok-keyword">def</span> extract(state: State) -&gt; dict:
+    req = make_llm(MODEL_URL).with_structured_output(RefundRequest).invoke(state[<span class="tok-string">&quot;user_text&quot;</span>])
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> isinstance(req, RefundRequest) <span class="tok-keyword">or</span> <span class="tok-keyword">not</span> req.order_id <span class="tok-keyword">or</span> <span class="tok-keyword">not</span> req.reason:
+        <span class="tok-keyword">raise</span> ValueError(<span class="tok-string">&quot;缺少订单号或原因&quot;</span>)  <span class="tok-comment"># 本地逻辑错误：不重试，直接暴露</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;order_id&quot;</span>: req.order_id.strip().upper(), <span class="tok-string">&quot;reason&quot;</span>: req.reason}
+
+
+<span class="tok-keyword">def</span> lookup(state: State) -&gt; Command[Literal[<span class="tok-string">&quot;approval&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>]]:
+    order = ORDERS.get(state[<span class="tok-string">&quot;order_id&quot;</span>])
+    <span class="tok-keyword">if</span> order <span class="tok-keyword">is</span> <span class="tok-keyword">None</span> <span class="tok-keyword">or</span> order[<span class="tok-string">&quot;status&quot;</span>] != <span class="tok-string">&quot;paid&quot;</span>:
+        <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;not_eligible&quot;</span>, <span class="tok-string">&quot;note&quot;</span>: <span class="tok-string">&quot;订单不存在或不是已支付&quot;</span>}, goto=<span class="tok-string">&quot;finish&quot;</span>)
+    <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;amount&quot;</span>: order[<span class="tok-string">&quot;amount&quot;</span>]}, goto=<span class="tok-string">&quot;approval&quot;</span>)
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> approval(state: State) -&gt; Command[Literal[<span class="tok-string">&quot;recheck&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>]]:</span>
+    <span class="tok-comment"># 人可能几小时后才回复。快照只是「审批时看到的样子」，不是执行时的事实。</span>
+<span class="focus-line">    ok = interrupt({<span class="tok-string">&quot;question&quot;</span>: <span class="tok-string">&quot;是否批准退款？&quot;</span>, <span class="tok-string">&quot;order_id&quot;</span>: state[<span class="tok-string">&quot;order_id&quot;</span>], <span class="tok-string">&quot;amount&quot;</span>: state[<span class="tok-string">&quot;amount&quot;</span>], <span class="tok-string">&quot;reason&quot;</span>: state[<span class="tok-string">&quot;reason&quot;</span>]})</span>
+    <span class="tok-keyword">if</span> ok <span class="tok-keyword">is</span> <span class="tok-keyword">not</span> <span class="tok-keyword">True</span>:
+        <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;rejected&quot;</span>, <span class="tok-string">&quot;note&quot;</span>: <span class="tok-string">&quot;审批人拒绝&quot;</span>}, goto=<span class="tok-string">&quot;finish&quot;</span>)
+    <span class="tok-keyword">return</span> Command(goto=<span class="tok-string">&quot;recheck&quot;</span>)
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> recheck(state: State) -&gt; Command[Literal[<span class="tok-string">&quot;charge&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>]]:</span>
+    <span class="tok-comment"># 审批期间订单可能已在别处退掉：执行前必须重新读取最新状态。</span>
+<span class="focus-line">    order = ORDERS[state[<span class="tok-string">&quot;order_id&quot;</span>]]</span>
+    <span class="tok-keyword">if</span> order[<span class="tok-string">&quot;status&quot;</span>] != <span class="tok-string">&quot;paid&quot;</span>:
+        <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;stale&quot;</span>, <span class="tok-string">&quot;note&quot;</span>: <span class="tok-string">&quot;审批期间订单状态已变化，未执行&quot;</span>}, goto=<span class="tok-string">&quot;finish&quot;</span>)
+    <span class="tok-comment"># 幂等键必须由业务数据推出。节点恢复时会重跑，若在这里用 uuid4()，每次都是新键，幂等就失效了。</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;refund_key&quot;</span>: <span class="tok-string">f&quot;refund-{state[&#x27;order_id&#x27;]}&quot;</span>}, goto=<span class="tok-string">&quot;charge&quot;</span>)</span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> charge(state: State) -&gt; dict:</span>
+<span class="focus-line">    result = GATEWAY.refund(state[<span class="tok-string">&quot;refund_key&quot;</span>], state[<span class="tok-string">&quot;order_id&quot;</span>], state[<span class="tok-string">&quot;amount&quot;</span>])</span>
+    ORDERS[state[<span class="tok-string">&quot;order_id&quot;</span>]][<span class="tok-string">&quot;status&quot;</span>] = <span class="tok-string">&quot;refunded&quot;</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refunded&quot;</span>, <span class="tok-string">&quot;note&quot;</span>: <span class="tok-string">f&quot;已退 {result[&#x27;amount&#x27;]} 元&quot;</span>}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> charge_unknown(state: State, error: NodeError) -&gt; Command:</span>
+    <span class="tok-comment"># 重试用尽。注意：此时「钱没退」和「钱退了但没拿到响应」两种可能都存在，</span>
+    <span class="tok-comment"># 所以不能标记失败，更不能让用户重新申请。只能挂起等对账。</span>
+    <span class="tok-keyword">return</span> Command(
+        update={<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;refund_unknown&quot;</span>, <span class="tok-string">&quot;note&quot;</span>: <span class="tok-string">f&quot;网关异常（{type(error.error).__name__}），键 {state[&#x27;refund_key&#x27;]}，转人工对账&quot;</span>},
+        goto=<span class="tok-string">&quot;finish&quot;</span>,
+    )
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> extract_failed(state: State, error: NodeError) -&gt; Command:</span>
+    <span class="tok-comment"># 模型挂了不该让整个退款流程报 500：转人工，把原文留给客服。</span>
+    <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;manual_review&quot;</span>, <span class="tok-string">&quot;note&quot;</span>: <span class="tok-string">f&quot;模型不可用（{type(error.error).__name__}），原文已留存&quot;</span>}, goto=<span class="tok-string">&quot;finish&quot;</span>)
+
+
+<span class="tok-keyword">def</span> finish(state: State) -&gt; dict:
+    <span class="tok-keyword">return</span> {}
+
+
+MODEL_ERRORS = (openai.APIConnectionError, openai.APITimeoutError, openai.RateLimitError, openai.InternalServerError)
+GATEWAY_ERRORS = (GatewayUnavailable, GatewayTimeout)
+
+builder = (
+    StateGraph(State)
+<span class="focus-line">    .add_node(<span class="tok-string">&quot;extract&quot;</span>, extract, retry_policy=RetryPolicy(max_attempts=<span class="tok-number">3</span>, initial_interval=<span class="tok-number">0.1</span>, retry_on=MODEL_ERRORS), error_handler=extract_failed)</span>
+    .add_node(<span class="tok-string">&quot;lookup&quot;</span>, lookup)
+    .add_node(<span class="tok-string">&quot;approval&quot;</span>, approval)
+    .add_node(<span class="tok-string">&quot;recheck&quot;</span>, recheck)
+<span class="focus-line">    .add_node(<span class="tok-string">&quot;charge&quot;</span>, charge, retry_policy=RetryPolicy(max_attempts=<span class="tok-number">3</span>, initial_interval=<span class="tok-number">0.1</span>, retry_on=GATEWAY_ERRORS), error_handler=charge_unknown)</span>
+    .add_node(<span class="tok-string">&quot;finish&quot;</span>, finish)
+    .add_edge(START, <span class="tok-string">&quot;extract&quot;</span>)
+    .add_edge(<span class="tok-string">&quot;extract&quot;</span>, <span class="tok-string">&quot;lookup&quot;</span>)
+    .add_edge(<span class="tok-string">&quot;charge&quot;</span>, <span class="tok-string">&quot;finish&quot;</span>)
+    .add_edge(<span class="tok-string">&quot;finish&quot;</span>, END)
+)
+app = builder.compile(checkpointer=InMemorySaver())
+
+
+<span class="tok-keyword">def</span> run(title: str, *, mode: str = <span class="tok-string">&quot;ok&quot;</span>, stale: bool = <span class="tok-keyword">False</span>, model_down: bool = <span class="tok-keyword">False</span>) -&gt; <span class="tok-keyword">None</span>:
+    <span class="tok-keyword">global</span> MODEL_URL
+    GATEWAY.reset(mode)
+    ORDERS.clear()
+    ORDERS.update(copy.deepcopy(ORDERS0))
+    MODEL_URL = <span class="tok-string">&quot;http://127.0.0.1:9/v1&quot;</span> <span class="tok-keyword">if</span> model_down <span class="tok-keyword">else</span> <span class="tok-keyword">None</span>
+    config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: title}}
+    out = app.invoke({<span class="tok-string">&quot;user_text&quot;</span>: <span class="tok-string">&quot;订单 A100 商品损坏，申请退款&quot;</span>}, config)
+    <span class="tok-keyword">if</span> out.get(<span class="tok-string">&quot;__interrupt__&quot;</span>):
+        <span class="tok-keyword">if</span> stale:
+            ORDERS[<span class="tok-string">&quot;A100&quot;</span>][<span class="tok-string">&quot;status&quot;</span>] = <span class="tok-string">&quot;refunded&quot;</span>  <span class="tok-comment"># 审批等待期间，别处已经退了</span>
+        out = app.invoke(Command(resume=<span class="tok-keyword">True</span>), config)
+    print(<span class="tok-string">f&quot;{title}\n  状态={out[&#x27;status&#x27;]}  {out.get(&#x27;note&#x27;, &#x27;&#x27;)}\n  网关调用 {GATEWAY.calls} 次，实际到账 {len(GATEWAY.ledger)} 笔&quot;</span>)
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    run(<span class="tok-string">&quot;1 网关偶发 502（重试即可）&quot;</span>, mode=<span class="tok-string">&quot;flaky&quot;</span>)
+    run(<span class="tok-string">&quot;2 已扣款但响应超时（幂等键兜底）&quot;</span>, mode=<span class="tok-string">&quot;timeout_after_commit&quot;</span>)
+    run(<span class="tok-string">&quot;3 网关持续不可用（转对账）&quot;</span>, mode=<span class="tok-string">&quot;down&quot;</span>)
+    run(<span class="tok-string">&quot;4 审批期间订单已被退（执行前复核）&quot;</span>, stale=<span class="tok-keyword">True</span>)
+    run(<span class="tok-string">&quot;5 模型服务宕机（转人工）&quot;</span>, model_down=<span class="tok-keyword">True</span>)
+</code></pre></div></div><div class="notes"><p><b>01 / 先说业务</b>退款里最危险的一步是「审批通过后调支付网关」：它有外部副作用，且失败时结果不确定。上表五个场景都来自这一步及其前后。</p><p><b>02 / 核心取舍</b>重试能不能做，取决于「重复执行会不会再退一次钱」。所以先给操作配<b>幂等键</b>，再谈重试；键必须由业务数据推出（订单号），不能在节点里 <code>uuid4()</code>，因为恢复时节点会重跑。</p><p><b>03 / 失败要分三种状态</b>成功、明确失败、<b>未知</b>。场景 3 里不能写「失败」，否则用户会重新申请；写 <code>refund_unknown</code> 并带上幂等键，由对账确认。</p><p><b>04 / 官方顺序</b>异常 → 看 <code>retry_policy</code> → 用尽才进 <code>error_handler</code>；<code>interrupt</code> 不走这条路。</p><p><b>05 / 模拟与真实的差距</b>网关、订单库是本文件内的模拟类，用来稳定复现故障；真实网关是否支持幂等键、键保留多久，要看你们的支付渠道文档。</p></div><p class="run">运行：<code>python code/s11_refund_prod.py</code> · 需要模型服务。依次跑五个场景，各打印状态、网关调用次数和实际到账笔数；看场景 2：网关调用 2 次，到账仍是 1 笔。</p></section>
+<section id="s12"><div class="heading"><span class="num">12</span><h2>模型输出是不可信输入</h2><a class="source" href="../code/s12_untrusted_output.py">s12_untrusted_output.py ↗</a></div><div class="docs"><b>先读官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/graph-api-control-flow">Graph API · 条件边与 Command ↗</a>　<a href="https://docs.langchain.com/oss/python/langgraph/fault-tolerance">Fault tolerance · LLM 可纠正的错误 ↗</a>　</div><h3>先看业务：线上是什么情况</h3><table class="cmp"><tr><th>原话</th><th>模型抽出的值</th><th>没有校验的后果</th><th>本例的处理</th></tr><tr><td>「订单是 a-100」</td><td><code>a-100</code></td><td>查库失败，用户被告知订单不存在</td><td><code>normalize</code> 用代码统一格式，不再调模型</td></tr><tr><td>「订单 Z999」</td><td><code>Z999</code>（库里没有）</td><td>拿不存在的号去下游，报错或查到别人的单</td><td>把拒绝原因回灌给模型重试，最多 3 次，仍不行转人工</td></tr><tr><td>「帮我退款」</td><td><code>null</code></td><td>重试多少次都不会凭空出现订单号，白烧调用</td><td>识别为缺信息，直接回去问用户，不重试</td></tr></table><div class="pair"><div class="diagram" role="img" aria-label="模型抽取后由代码校验，未通过则带原因重试，满次数转人工"><div class="stack"><div class="node accent">extract · 模型抽取</div><div class="arrow">↓</div><div class="node">为空？→ need_input 问用户</div><div class="arrow">↓</div><div class="node accent">normalize + 查白名单</div><div class="small">命中 → ok</div><div class="arrow">↓ 未命中</div><div class="node accent">写入 feedback，回到 extract</div><div class="small">满 3 次 → manual_review</div></div></div><div class="code"><div class="code-label">完整代码 · s12_untrusted_output.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s12_untrusted_output.py — 模型输出是「不可信输入」：先校验，错了把原因回灌给模型重试，仍不行转人工。</span>
+
+<span class="tok-string">项目根目录运行：python code/s12_untrusted_output.py</span>
+<span class="tok-string">需要模型服务（.env 见 s00_env.md）。</span>
+
+<span class="tok-string">线上原型：模型从用户原话里抽出订单号，下游拿它去查库、退款。</span>
+<span class="tok-string">模型会写出库里不存在的号（大小写、横杠、O 和 0 混淆，甚至凭空编造）。</span>
+<span class="tok-string">结构化输出只保证「格式对」，不保证「业务上存在」，所以校验必须在代码里做。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> os
+<span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Literal
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, StateGraph
+<span class="tok-keyword">from</span> langgraph.types <span class="tok-keyword">import</span> Command
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> BaseModel, Field, SecretStr
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> NotRequired, TypedDict
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+KNOWN_ORDERS = {<span class="tok-string">&quot;A100&quot;</span>, <span class="tok-string">&quot;B200&quot;</span>}  <span class="tok-comment"># 真实系统里是查库</span>
+MAX_ATTEMPTS = <span class="tok-number">3</span>
+
+
+<span class="tok-keyword">class</span> Extracted(BaseModel):
+    <span class="tok-string">&quot;&quot;&quot;只从用户原话里提取，不要猜测。&quot;&quot;&quot;</span>
+
+    order_id: str | <span class="tok-keyword">None</span> = Field(description=<span class="tok-string">&quot;订单号，原话里没有则为 null&quot;</span>)
+
+
+llm = ChatOpenAI(
+    model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+    api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+    base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    temperature=<span class="tok-number">0</span>,
+)
+extractor = llm.with_structured_output(Extracted)
+
+
+<span class="tok-keyword">class</span> State(TypedDict):
+    text: str
+    attempts: NotRequired[int]
+<span class="focus-line">    feedback: NotRequired[str]</span>
+    order_id: NotRequired[str]
+    status: NotRequired[str]
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> normalize(raw: str) -&gt; str:</span>
+    <span class="tok-comment"># 确定性的格式问题（大小写、横杠、空格）交给代码，不要浪费一次模型调用。</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> raw.strip().upper().replace(<span class="tok-string">&quot;-&quot;</span>, <span class="tok-string">&quot;&quot;</span>).replace(<span class="tok-string">&quot; &quot;</span>, <span class="tok-string">&quot;&quot;</span>)</span>
+
+
+<span class="tok-keyword">def</span> extract(state: State) -&gt; Command[Literal[<span class="tok-string">&quot;extract&quot;</span>]]:
+    attempts = state.get(<span class="tok-string">&quot;attempts&quot;</span>, <span class="tok-number">0</span>) + <span class="tok-number">1</span>
+    prompt = state[<span class="tok-string">&quot;text&quot;</span>]
+<span class="focus-line">    <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;feedback&quot;</span>):</span>
+        <span class="tok-comment"># 把「哪里错了」告诉模型，比单纯重试有效得多。</span>
+<span class="focus-line">        prompt += <span class="tok-string">f&quot;\n\n上一次的提取被系统拒绝：{state[&#x27;feedback&#x27;]}&quot;</span></span>
+    got = extractor.invoke(prompt)
+    raw = got.order_id <span class="tok-keyword">if</span> isinstance(got, Extracted) <span class="tok-keyword">else</span> <span class="tok-keyword">None</span>
+
+<span class="focus-line">    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> raw:</span>
+        <span class="tok-comment"># 原话里就没有订单号：再问模型十次也不会有，该问用户。</span>
+        <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;attempts&quot;</span>: attempts, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;need_input&quot;</span>}, goto=END)
+    candidate = normalize(raw)
+<span class="focus-line">    <span class="tok-keyword">if</span> candidate <span class="tok-keyword">in</span> KNOWN_ORDERS:</span>
+        <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;attempts&quot;</span>: attempts, <span class="tok-string">&quot;order_id&quot;</span>: candidate, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;ok&quot;</span>}, goto=END)
+<span class="focus-line">    <span class="tok-keyword">if</span> attempts &gt;= MAX_ATTEMPTS:</span>
+        <span class="tok-comment"># 不要无限纠错：反复失败说明输入本身有问题，该让人看。</span>
+        <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;attempts&quot;</span>: attempts, <span class="tok-string">&quot;status&quot;</span>: <span class="tok-string">&quot;manual_review&quot;</span>}, goto=END)
+<span class="focus-line">    reason = <span class="tok-string">f&quot;订单号 {raw!r} 在系统中不存在。请只返回原话里逐字出现的订单号，没有就返回 null。&quot;</span></span>
+<span class="focus-line">    <span class="tok-keyword">return</span> Command(update={<span class="tok-string">&quot;attempts&quot;</span>: attempts, <span class="tok-string">&quot;feedback&quot;</span>: reason}, goto=<span class="tok-string">&quot;extract&quot;</span>)</span>
+
+
+graph = StateGraph(State).add_node(<span class="tok-string">&quot;extract&quot;</span>, extract).add_edge(START, <span class="tok-string">&quot;extract&quot;</span>).compile()
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    <span class="tok-keyword">for</span> text <span class="tok-keyword">in</span> (<span class="tok-string">&quot;我的订单是 a-100 那个，屏幕碎了&quot;</span>, <span class="tok-string">&quot;订单 Z999 一直没收到&quot;</span>, <span class="tok-string">&quot;帮我退款&quot;</span>):
+        out = graph.invoke({<span class="tok-string">&quot;text&quot;</span>: text})
+        print(<span class="tok-string">f&quot;{text!r}\n  状态={out[&#x27;status&#x27;]} 订单号={out.get(&#x27;order_id&#x27;)} 模型调用 {out[&#x27;attempts&#x27;]} 次&quot;</span>)
+</code></pre></div></div><div class="notes"><p><b>01 / 先分清错误来源</b>格式差异是确定性的，交给代码；业务上不存在才需要模型重试；原话里没有的，重试没有意义，应该问人。三种情况走三条路。</p><p><b>02 / 反馈要具体</b>重试时把「被拒绝的值和原因」拼进提示。只说「再试一次」，模型多半给出同样的答案。</p><p><b>03 / 要有出口</b><code>MAX_ATTEMPTS</code> 限制自我纠错次数；反复失败通常是输入本身有问题。</p><p><b>04 / 可迁移到</b>任何「模型产出 → 下游系统消费」的位置：抽取工单字段、生成 SQL 条件、选择路由目标。校验放在边界上，别信模型。</p></div><p class="run">运行：<code>python code/s12_untrusted_output.py</code> · 需要模型服务。预期：第一句 1 次调用得 A100；Z999 用满 3 次转人工；「帮我退款」1 次后要求补充。校验用的 <code>KNOWN_ORDERS</code> 是模拟，真实系统换成查库。</p></section>
+<section id="s13"><div class="heading"><span class="num">13</span><h2>Agent 步数预算：留一步诚实收尾</h2><a class="source" href="../code/s13_step_budget.py">s13_step_budget.py ↗</a></div><div class="docs"><b>先读官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/graph-api-control-flow">Control flow · 递归限制与 RemainingSteps ↗</a>　</div><h3>先看业务：线上是什么情况</h3><table class="cmp"><tr><th>线上情况</th><th>不处理的后果</th><th>本例的处理</th></tr><tr><td>知识库里确实没有答案，模型不断换关键词再搜</td><td>一次请求几十次调用，成本失控</td><td><code>recursion_limit</code> 设上限</td></tr><tr><td>撞上限抛 <code>GraphRecursionError</code></td><td>用户看到 500，什么答案都没有</td><td>用 <code>RemainingSteps</code> 提前改道到 <code>wrap_up</code>，不再绑工具，如实告知查不到</td></tr><tr><td>收尾时模型被追问仍想编一个答案</td><td>给出看似合理的错误政策</td><td>收尾提示明确要求「不要编造」</td></tr></table><div class="pair"><div class="diagram" role="img" aria-label="步数充足时继续调工具，不足时改道到不带工具的收尾节点"><div class="stack"><div class="node accent">agent · 绑定工具</div><div class="small">无 tool_calls → 结束</div><div class="arrow">↓ 有 tool_calls</div><div class="node">剩余步数 &gt; 3？</div><div class="small">是 → tools → 回 agent</div><div class="arrow">↓ 否</div><div class="node accent">wrap_up · 不带工具，如实收尾</div></div></div><div class="code"><div class="code-label">完整代码 · s13_step_budget.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s13_step_budget.py — Agent 的步数预算：查不到时不要无限重试，留出最后一步诚实收尾。</span>
+
+<span class="tok-string">项目根目录运行：python code/s13_step_budget.py</span>
+<span class="tok-string">需要模型服务，且服务端支持工具调用（见 s04、s06）。</span>
+
+<span class="tok-string">线上原型：知识库里没有答案，模型却不断换关键词再搜，一次请求烧掉几十次调用。</span>
+<span class="tok-string">做法：用 RemainingSteps 在撞上限之前改道到「收尾节点」，告诉用户实情，</span>
+<span class="tok-string">而不是等 GraphRecursionError 抛出来变成 500。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> os
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.messages <span class="tok-keyword">import</span> HumanMessage, SystemMessage
+<span class="tok-keyword">from</span> langchain_core.tools <span class="tok-keyword">import</span> tool
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> END, START, MessagesState, StateGraph
+<span class="tok-keyword">from</span> langgraph.managed.is_last_step <span class="tok-keyword">import</span> RemainingSteps
+<span class="tok-keyword">from</span> langgraph.prebuilt <span class="tok-keyword">import</span> ToolNode
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+SEARCH_CALLS = {<span class="tok-string">&quot;n&quot;</span>: <span class="tok-number">0</span>}
+
+
+<span class="tok-keyword">@</span>tool
+<span class="tok-keyword">def</span> search_kb(query: str) -&gt; str:
+    <span class="tok-string">&quot;&quot;&quot;在知识库中搜索。&quot;&quot;&quot;</span>
+    SEARCH_CALLS[<span class="tok-string">&quot;n&quot;</span>] += <span class="tok-number">1</span>
+    <span class="tok-keyword">return</span> <span class="tok-string">&quot;未找到相关条目，请换一个关键词再试。&quot;</span>  <span class="tok-comment"># 模拟：库里确实没有</span>
+
+
+llm = ChatOpenAI(
+    model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+    api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+    base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    temperature=<span class="tok-number">0</span>,
+)
+llm_tools = llm.bind_tools([search_kb])
+
+
+<span class="tok-keyword">class</span> State(MessagesState):
+<span class="focus-line">    remaining_steps: RemainingSteps  <span class="tok-comment"># 框架维护：距离 recursion_limit 还剩几步</span></span>
+
+
+<span class="tok-keyword">def</span> agent(state: State) -&gt; dict:
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;messages&quot;</span>: [llm_tools.invoke(state[<span class="tok-string">&quot;messages&quot;</span>])]}
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> route(state: State) -&gt; str:</span>
+    last = state[<span class="tok-string">&quot;messages&quot;</span>][-<span class="tok-number">1</span>]
+    <span class="tok-keyword">if</span> <span class="tok-keyword">not</span> getattr(last, <span class="tok-string">&quot;tool_calls&quot;</span>, <span class="tok-keyword">None</span>):
+        <span class="tok-keyword">return</span> <span class="tok-string">&quot;done&quot;</span>
+    <span class="tok-comment"># 一轮 = agent + tools 两步；剩余不足以再走一轮就改道，别等异常。</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> <span class="tok-string">&quot;wrap_up&quot;</span> <span class="tok-keyword">if</span> state[<span class="tok-string">&quot;remaining_steps&quot;</span>] &lt;= <span class="tok-number">3</span> <span class="tok-keyword">else</span> <span class="tok-string">&quot;tools&quot;</span></span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> wrap_up(state: State) -&gt; dict:</span>
+    <span class="tok-comment"># 不带工具再问一次：只能基于已有信息作答，并如实说明查不到。</span>
+<span class="focus-line">    note = SystemMessage(content=<span class="tok-string">&quot;查询次数已用完。请根据已有结果如实告诉用户没有查到，不要编造。&quot;</span>)</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;messages&quot;</span>: [llm.invoke([*state[<span class="tok-string">&quot;messages&quot;</span>][:-<span class="tok-number">1</span>], note])]}</span>
+
+
+graph = (
+    StateGraph(State)
+    .add_node(<span class="tok-string">&quot;agent&quot;</span>, agent)
+    .add_node(<span class="tok-string">&quot;tools&quot;</span>, ToolNode([search_kb]))
+    .add_node(<span class="tok-string">&quot;wrap_up&quot;</span>, wrap_up)
+    .add_edge(START, <span class="tok-string">&quot;agent&quot;</span>)
+<span class="focus-line">    .add_conditional_edges(<span class="tok-string">&quot;agent&quot;</span>, route, {<span class="tok-string">&quot;tools&quot;</span>: <span class="tok-string">&quot;tools&quot;</span>, <span class="tok-string">&quot;wrap_up&quot;</span>: <span class="tok-string">&quot;wrap_up&quot;</span>, <span class="tok-string">&quot;done&quot;</span>: END})</span>
+    .add_edge(<span class="tok-string">&quot;tools&quot;</span>, <span class="tok-string">&quot;agent&quot;</span>)
+    .add_edge(<span class="tok-string">&quot;wrap_up&quot;</span>, END)
+    .compile()
+)
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    ask = [SystemMessage(content=<span class="tok-string">&quot;先用 search_kb 查询再回答；查不到就换关键词继续查。&quot;</span>), HumanMessage(content=<span class="tok-string">&quot;公司年假怎么算？&quot;</span>)]
+    out = graph.invoke({<span class="tok-string">&quot;messages&quot;</span>: ask}, {<span class="tok-string">&quot;recursion_limit&quot;</span>: <span class="tok-number">10</span>})
+    print(<span class="tok-string">&quot;搜索调用次数：&quot;</span>, SEARCH_CALLS[<span class="tok-string">&quot;n&quot;</span>])
+    print(<span class="tok-string">&quot;最终回答：&quot;</span>, out[<span class="tok-string">&quot;messages&quot;</span>][-<span class="tok-number">1</span>].content)
+</code></pre></div></div><div class="notes"><p><b>01 / 两种处理的区别</b><code>GraphRecursionError</code> 是事后捕获，流程已中断；<code>RemainingSteps</code> 是事前改道，图继续走到一个正常的结尾。</p><p><b>02 / 为什么是 3</b>一轮是 agent 加 tools 两步，再留一步给收尾。阈值要按你图里一轮的步数算。</p><p><b>03 / 收尾节点不绑工具</b>收尾时模型没有工具可调，只能基于已有结果作答，这是保证它真正收尾的关键。</p><p><b>04 / 可迁移到</b>任何带循环的 Agent：检索、代码修复、多轮规划。</p></div><p class="run">运行：<code>python code/s13_step_budget.py</code> · 需要模型服务且支持工具调用。实测搜索调用 8 次后收尾，回答如实说明没有查到。次数随模型不同而变化。</p></section>
+<section id="s14"><div class="heading"><span class="num">14</span><h2>长对话：窗口加钉住的事实</h2><a class="source" href="../code/s14_context_window.py">s14_context_window.py ↗</a></div><div class="docs"><b>先读官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/persistence">Persistence · 线程与检查点 ↗</a>　<a href="https://docs.langchain.com/oss/python/langgraph/graph-api">Graph API · 状态与 reducer ↗</a>　</div><h3>先看业务：线上是什么情况</h3><table class="cmp"><tr><th>线上情况</th><th>不处理的后果</th><th>本例的处理</th></tr><tr><td>会话越聊越长，全量历史每轮都发</td><td>成本和延迟线性上涨，最终超出上下文</td><td>每次只取最近 <code>WINDOW</code> 条</td></tr><tr><td>直接截断，开头的订单号被挤出窗口</td><td>模型回答「您没有提供订单号」</td><td>订单号存成独立字段 <code>pinned_order</code>，每轮拼进 system</td></tr><tr><td>审计、回放需要完整记录</td><td>裁剪后无法还原当时发生了什么</td><td>checkpoint 里仍保留全部消息，只在调用时裁剪</td></tr></table><div class="pair"><div class="diagram" role="img" aria-label="完整历史保存在检查点，调用前只取窗口并拼入钉住的事实"><div class="stack"><div class="node">完整历史 · 存在 checkpoint</div><div class="arrow">↓ 取最近 N 条</div><div class="node accent">窗口</div><div class="node accent">pinned_order · 钉住的事实</div><div class="arrow">↓ 合并</div><div class="node accent">发给模型</div></div></div><div class="code"><div class="code-label">完整代码 · s14_context_window.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s14_context_window.py — 长对话：只给模型看最近的窗口，关键事实单独「钉」在状态里。</span>
+
+<span class="tok-string">项目根目录运行：python code/s14_context_window.py</span>
+<span class="tok-string">需要模型服务（.env 见 s00_env.md）。</span>
+
+<span class="tok-string">线上原型：客服会话越聊越长，全量历史每轮都发给模型，成本和延迟线性上涨，最终超出上下文。</span>
+<span class="tok-string">直接截断又会把开头的关键信息（订单号）丢掉。</span>
+<span class="tok-string">做法：checkpoint 里保留完整历史（审计、回放要用），但每次调用前只取最近 N 条；</span>
+<span class="tok-string">订单号这类不能丢的事实存成独立字段，每轮拼进 system 提示。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> os
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.messages <span class="tok-keyword">import</span> HumanMessage, SystemMessage
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.checkpoint.memory <span class="tok-keyword">import</span> InMemorySaver
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> START, MessagesState, StateGraph
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+<span class="tok-keyword">from</span> typing_extensions <span class="tok-keyword">import</span> NotRequired
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+<span class="focus-line">WINDOW = <span class="tok-number">4</span>  <span class="tok-comment"># 只带最近 4 条消息；真实系统常按 token 数裁剪</span></span>
+
+llm = ChatOpenAI(
+    model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+    api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+    base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    temperature=<span class="tok-number">0</span>,
+)
+
+
+<span class="tok-keyword">class</span> State(MessagesState):
+<span class="focus-line">    pinned_order: NotRequired[str]  <span class="tok-comment"># 不能随窗口滑走的事实</span></span>
+<span class="focus-line">    sent_count: NotRequired[int]  <span class="tok-comment"># 记录最近一次实际发给模型的消息条数</span></span>
+
+
+<span class="tok-keyword">def</span> chat(state: State) -&gt; dict:
+<span class="focus-line">    recent = state[<span class="tok-string">&quot;messages&quot;</span>][-WINDOW:]</span>
+    system = <span class="tok-string">&quot;你是客服。简短回答。&quot;</span>
+<span class="focus-line">    <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;pinned_order&quot;</span>):</span>
+<span class="focus-line">        system += <span class="tok-string">f&quot; 已确认的订单号：{state[&#x27;pinned_order&#x27;]}。&quot;</span></span>
+    reply = llm.invoke([SystemMessage(content=system), *recent])
+<span class="focus-line">    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;messages&quot;</span>: [reply], <span class="tok-string">&quot;sent_count&quot;</span>: len(recent)}</span>
+
+
+graph = StateGraph(State).add_node(<span class="tok-string">&quot;chat&quot;</span>, chat).add_edge(START, <span class="tok-string">&quot;chat&quot;</span>).compile(checkpointer=InMemorySaver())
+
+
+<span class="tok-keyword">def</span> say(config: RunnableConfig, text: str, **extra) -&gt; str:
+    out = graph.invoke({<span class="tok-string">&quot;messages&quot;</span>: [HumanMessage(content=text)], **extra}, config)
+    <span class="tok-keyword">return</span> str(out[<span class="tok-string">&quot;messages&quot;</span>][-<span class="tok-number">1</span>].content)
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    <span class="tok-keyword">for</span> pinned <span class="tok-keyword">in</span> (<span class="tok-keyword">False</span>, <span class="tok-keyword">True</span>):
+        config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: <span class="tok-string">f&quot;pinned-{pinned}&quot;</span>}}
+<span class="focus-line">        say(config, <span class="tok-string">&quot;我的订单号是 A100，屏幕碎了。&quot;</span>, **({<span class="tok-string">&quot;pinned_order&quot;</span>: <span class="tok-string">&quot;A100&quot;</span>} <span class="tok-keyword">if</span> pinned <span class="tok-keyword">else</span> {}))</span>
+        <span class="tok-keyword">for</span> filler <span class="tok-keyword">in</span> (<span class="tok-string">&quot;你们几点下班？&quot;</span>, <span class="tok-string">&quot;运费谁承担？&quot;</span>, <span class="tok-string">&quot;能开发票吗？&quot;</span>, <span class="tok-string">&quot;退款多久到账？&quot;</span>):
+            say(config, filler)
+        answer = say(config, <span class="tok-string">&quot;我刚才说的订单号是多少？&quot;</span>)
+        total = len(graph.get_state(config).values[<span class="tok-string">&quot;messages&quot;</span>])
+<span class="focus-line">        sent = graph.get_state(config).values[<span class="tok-string">&quot;sent_count&quot;</span>]</span>
+        print(<span class="tok-string">f&quot;钉住订单号={pinned}：历史共 {total} 条，最后一轮只发给模型 {sent} 条\n  回答：{answer}&quot;</span>)
+</code></pre></div></div><div class="notes"><p><b>01 / 存与用分开</b>状态里存全量，送模型的是裁剪后的视图。两件事别混。</p><p><b>02 / 什么该钉住</b>跨越整个会话都要用的事实：订单号、用户身份、已做出的决定。由代码或工具确认后写入，别让模型自己记。</p><p><b>03 / 实测对照</b>同样 11 条历史、只发 4 条：不钉住时模型答「没有提供订单号」，钉住后答 A100。</p><p><b>04 / 可迁移到</b>客服、助理、多轮表单。生产里常按 token 数而不是条数裁剪，也可以把旧消息总结后再放回。</p></div><p class="run">运行：<code>python code/s14_context_window.py</code> · 需要模型服务。两组对照：不钉住与钉住，看最后一问的回答。条数窗口只是演示。</p></section>
+<section id="s15"><div class="heading"><span class="num">15</span><h2>成本护栏：按会话累计 token</h2><a class="source" href="../code/s15_token_budget.py">s15_token_budget.py ↗</a></div><div class="docs"><b>先读官方文档</b><a href="https://docs.langchain.com/oss/python/langgraph/graph-api">Graph API · 状态与 reducer ↗</a>　<a href="https://docs.langchain.com/oss/python/langgraph/persistence">Persistence · 线程与检查点 ↗</a>　</div><h3>先看业务：线上是什么情况</h3><table class="cmp"><tr><th>线上情况</th><th>不处理的后果</th><th>本例的处理</th></tr><tr><td>会话可以无限聊，或被脚本刷</td><td>没有任何一层知道这个会话花了多少，月底才发现账单</td><td>用量累加进状态，随 checkpoint 持久</td></tr><tr><td>多个节点都会调模型</td><td>各自统计会互相覆盖</td><td><code>Annotated[int, operator.add]</code>：节点只返回本次增量，框架负责累加</td></tr><tr><td>超额之后还继续调用</td><td>继续烧钱</td><td><code>guard</code> 在调用前检查，超了走 <code>refuse</code>，不再调模型</td></tr></table><div class="pair"><div class="diagram" role="img" aria-label="每次调用前检查累计用量，调用后累加本次用量，超预算则拒绝"><div class="stack"><div class="node accent">guard · 查累计用量</div><div class="small">未超 → chat</div><div class="arrow">↓</div><div class="node accent">chat · 调模型，返回本次 token</div><div class="small">reducer 累加到 tokens_used</div><div class="arrow">↓ 下一问</div><div class="node">超预算 → refuse，不调模型</div></div></div><div class="code"><div class="code-label">完整代码 · s15_token_budget.py <span>绿色底色为重点</span></div><pre class="source-code"><code><span class="tok-string">&quot;&quot;&quot;s15_token_budget.py — 成本护栏：按会话累计 token，超预算就停止调用模型。</span>
+
+<span class="tok-string">项目根目录运行：python code/s15_token_budget.py</span>
+<span class="tok-string">需要模型服务（.env 见 s00_env.md）。</span>
+
+<span class="tok-string">线上原型：一个会话可以无限聊下去，或被脚本刷；没有任何一层知道「这个会话已经花了多少」。</span>
+<span class="focus-line"><span class="tok-string">做法：每次调用后把 usage_metadata 累加进状态（随 checkpoint 持久），</span></span>
+<span class="tok-string">调用前先检查预算，超了就走拒绝分支，不再调模型。</span>
+<span class="tok-string">&quot;&quot;&quot;</span>
+<span class="tok-keyword">import</span> operator
+<span class="tok-keyword">import</span> os
+<span class="tok-keyword">from</span> typing <span class="tok-keyword">import</span> Annotated, Literal
+
+<span class="tok-keyword">from</span> dotenv <span class="tok-keyword">import</span> load_dotenv
+<span class="tok-keyword">from</span> langchain_core.messages <span class="tok-keyword">import</span> AIMessage, HumanMessage
+<span class="tok-keyword">from</span> langchain_core.runnables <span class="tok-keyword">import</span> RunnableConfig
+<span class="tok-keyword">from</span> langchain_openai <span class="tok-keyword">import</span> ChatOpenAI
+<span class="tok-keyword">from</span> langgraph.checkpoint.memory <span class="tok-keyword">import</span> InMemorySaver
+<span class="tok-keyword">from</span> langgraph.graph <span class="tok-keyword">import</span> START, MessagesState, StateGraph
+<span class="tok-keyword">from</span> langgraph.types <span class="tok-keyword">import</span> Command
+<span class="tok-keyword">from</span> pydantic <span class="tok-keyword">import</span> SecretStr
+
+load_dotenv(override=<span class="tok-keyword">True</span>)
+<span class="focus-line">BUDGET = <span class="tok-number">400</span>  <span class="tok-comment"># 演示用的小额度；真实系统按套餐/用户等级设置</span></span>
+
+llm = ChatOpenAI(
+    model=os.environ[<span class="tok-string">&quot;OPENAI_MODEL&quot;</span>],
+    api_key=SecretStr(os.environ[<span class="tok-string">&quot;OPENAI_API_KEY&quot;</span>]),
+    base_url=os.environ[<span class="tok-string">&quot;OPENAI_BASE_URL&quot;</span>],
+    temperature=<span class="tok-number">0</span>,
+)
+
+
+<span class="tok-keyword">class</span> State(MessagesState):
+<span class="focus-line">    tokens_used: Annotated[int, operator.add]  <span class="tok-comment"># 累加器：每个节点只返回「本次增量」</span></span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> guard(state: State) -&gt; Command[Literal[<span class="tok-string">&quot;chat&quot;</span>, <span class="tok-string">&quot;refuse&quot;</span>]]:</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> Command(goto=<span class="tok-string">&quot;refuse&quot;</span> <span class="tok-keyword">if</span> state.get(<span class="tok-string">&quot;tokens_used&quot;</span>, <span class="tok-number">0</span>) &gt;= BUDGET <span class="tok-keyword">else</span> <span class="tok-string">&quot;chat&quot;</span>)</span>
+
+
+<span class="tok-keyword">def</span> chat(state: State) -&gt; dict:
+    reply = llm.invoke(state[<span class="tok-string">&quot;messages&quot;</span>])
+    <span class="tok-comment"># 兼容服务端不返回用量的情况：取不到就记 0，并不会让流程中断。</span>
+<span class="focus-line">    used = (reply.usage_metadata <span class="tok-keyword">or</span> {}).get(<span class="tok-string">&quot;total_tokens&quot;</span>, <span class="tok-number">0</span>)</span>
+<span class="focus-line">    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;messages&quot;</span>: [reply], <span class="tok-string">&quot;tokens_used&quot;</span>: used}</span>
+
+
+<span class="focus-line"><span class="tok-keyword">def</span> refuse(state: State) -&gt; dict:</span>
+    <span class="tok-keyword">return</span> {<span class="tok-string">&quot;messages&quot;</span>: [AIMessage(content=<span class="tok-string">&quot;本次会话额度已用完，请联系人工客服。&quot;</span>)]}
+
+
+graph = (
+    StateGraph(State)
+    .add_node(<span class="tok-string">&quot;guard&quot;</span>, guard)
+    .add_node(<span class="tok-string">&quot;chat&quot;</span>, chat)
+    .add_node(<span class="tok-string">&quot;refuse&quot;</span>, refuse)
+    .add_edge(START, <span class="tok-string">&quot;guard&quot;</span>)
+    .compile(checkpointer=InMemorySaver())
+)
+
+
+<span class="tok-keyword">if</span> __name__ == <span class="tok-string">&quot;__main__&quot;</span>:
+    config: RunnableConfig = {<span class="tok-string">&quot;configurable&quot;</span>: {<span class="tok-string">&quot;thread_id&quot;</span>: <span class="tok-string">&quot;budget-demo&quot;</span>}}
+    <span class="tok-keyword">for</span> i <span class="tok-keyword">in</span> range(<span class="tok-number">1</span>, <span class="tok-number">7</span>):
+        out = graph.invoke({<span class="tok-string">&quot;messages&quot;</span>: [HumanMessage(content=<span class="tok-string">&quot;用三句话介绍一下退款政策的常见要点。&quot;</span>)]}, config)
+<span class="focus-line">        print(<span class="tok-string">f&quot;第 {i} 问  累计 {out.get(&#x27;tokens_used&#x27;, 0)} / {BUDGET} tokens  →  {str(out[&#x27;messages&#x27;][-1].content)[:30]}…&quot;</span>)</span>
+</code></pre></div></div><div class="notes"><p><b>01 / 预算是软的</b>调用前检查，所以最后一次可能超出。实测第 2 问累计 554，超过 400。要硬上限，需要按预估长度提前扣减或限制单次输出。</p><p><b>02 / 用量从哪来</b><code>reply.usage_metadata</code>。部分兼容服务不返回，代码里取不到就记 0，所以这套护栏在这类服务上会失效，上线前要确认。</p><p><b>03 / 状态随会话走</b>用量放在状态里，换线程就是新预算；同一 <code>thread_id</code> 在重启后（持久化 checkpointer）仍保留。</p><p><b>04 / 可迁移到</b>按用户、按租户、按套餐限额；也可把超额分支换成降级到小模型。</p></div><p class="run">运行：<code>python code/s15_token_budget.py</code> · 需要模型服务。连问 6 次，看累计值越过额度后不再调用模型。额度 400 仅为演示。</p></section>
+<section id="check"><div class="heading"><span class="num">16</span><h2>上线前清单</h2></div><table class="cmp"><tr><th>检查项</th><th>做法</th></tr><tr><td>状态可持久</td><td>不用 <code>InMemorySaver</code>；每次调用都带稳定的 <code>thread_id</code></td></tr><tr><td>外部写操作</td><td>先有业务推出的幂等键，再配重试；结果不确定时标「未知」转对账，不要标失败</td></tr><tr><td>恢复安全</td><td><code>interrupt</code> 前的副作用幂等，或把副作用放到 <code>interrupt</code> 之后的独立节点</td></tr><tr><td>模型输出</td><td>当作不可信输入：规范化、白名单校验、有限次带原因重试、转人工（s12）</td></tr><tr><td>会话成本</td><td>窗口裁剪加钉住事实（s14）；累计用量与预算检查（s15）；确认服务端返回用量</td></tr><tr><td>中断载荷</td><td>只放可 JSON 序列化的内容</td></tr><tr><td>失败分层</td><td>瞬时 → <code>RetryPolicy</code>；可补救 → <code>error_handler</code>；模型可纠正 → 写回状态再路由；用户可修正 → <code>interrupt</code>；未知 bug → 让它抛出</td></tr><tr><td>循环有上限</td><td>有循环的图设 <code>recursion_limit</code>，并用 <code>RemainingSteps</code> 提前改道收尾（s13），外层再捕获 <code>GraphRecursionError</code> 兜底</td></tr><tr><td>等待期间状态变化</td><td>审批通过后、执行前重新读取订单（s11 的 recheck）</td></tr></table><p class="run">本篇未涉及：<code>checkpointer</code> 的 durability 模式、长期记忆 <code>store</code>、LangSmith 观测与部署。需要时直接读官方对应页面。</p></section>
+</main></body></html>

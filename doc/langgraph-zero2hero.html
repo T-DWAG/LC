@@ -7,7 +7,7 @@
 <style>
 :root{color-scheme:light;--ink:#202423;--muted:#737d78;--line:#e6eae7;--soft:#f6f8f6;--accent:#486e5d}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:#fff;font:15px/1.75 system-ui,-apple-system,"Microsoft YaHei",sans-serif}main{max-width:1300px;margin:0 auto 0 200px;padding:0 32px}header{padding:80px 0 50px;border-bottom:1px solid var(--line)}.eyebrow,.num{font:12px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:var(--accent)}h1{font-size:clamp(32px,5vw,48px);line-height:1.15;letter-spacing:-.04em;margin:14px 0}header p,.muted{color:var(--muted)}header p{margin:0;max-width:640px}nav{position:fixed;inset:0 auto 0 0;width:200px;overflow:auto;display:flex;flex-direction:column;gap:3px;padding:42px 20px;border-right:1px solid var(--line);background:#fff;font-size:13px;z-index:2}nav::before{content:"目录";font-size:11px;letter-spacing:.12em;color:var(--muted);margin:0 10px 12px}nav a{padding:7px 10px;border-radius:5px}nav a:hover,nav a:focus-visible{background:var(--soft);text-decoration:none}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}section{padding:56px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px}.heading{display:flex;align-items:baseline;gap:16px;margin-bottom:22px}h2{font-size:24px;letter-spacing:-.03em;margin:0}.source{margin-left:auto;font-size:13px;white-space:nowrap}.pair{display:grid;grid-template-columns:minmax(220px, .8fr) minmax(0, 1.2fr);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:225px}.diagram{background:var(--soft);padding:24px;display:flex;align-items:center;justify-content:center;min-width:0}.flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;text-align:center}.node{border:1px solid #cdd8d1;background:#fff;border-radius:5px;padding:8px 11px;font:13px/1.4 ui-monospace,Consolas,monospace;max-width:100%;overflow-wrap:anywhere}.node.accent{border-color:#96b5a1;color:#335844;background:#f9fdf9}.arrow{color:#91a598;font-size:16px}.stack{display:flex;flex-direction:column;align-items:center;gap:6px}.small{font-size:11px;color:var(--muted);line-height:1.4}.code{min-width:0;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column}.code-label{padding:12px 18px;border-bottom:1px solid var(--line);font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--muted)}.code-label span{float:right;color:var(--accent)}pre{margin:0;padding:18px;overflow:auto;tab-size:4;font:13px/1.7 ui-monospace,Consolas,"Microsoft YaHei",monospace;color:#34443b;flex:1}.source-code{max-height:560px;overscroll-behavior:contain}.source-code code{font:inherit}.focus-line{background:#e8f3e9;box-shadow:inset 3px 0 #83aa8e;display:inline-block;min-width:100%}.tok-keyword{color:#67529c;font-weight:600}.tok-string{color:#a0653c}.tok-comment{color:#839189;font-style:italic}.tok-number{color:#557e9d}code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}p code,li code{background:var(--soft);padding:2px 4px;border-radius:3px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:22px}.notes p{margin:0;color:#59635e}.notes b{color:var(--ink);font-weight:600;margin-right:8px}.run{margin:18px 0 0;font-size:13px;color:var(--muted)}.setup{padding:38px 0;scroll-margin-top:20px}.setup h2{font-size:20px}.setup pre{background:var(--soft);border-radius:6px;margin-top:16px}.setup p{color:#59635e}.warning{border-left:2px solid #d3b675;padding-left:14px;font-size:13px}.end{padding:35px 0 70px;color:var(--muted);font-size:13px}@media(max-width:800px){main{margin:0;padding:0 20px}nav{position:sticky;top:0;width:auto;inset:auto;flex-direction:row;gap:4px;overflow-x:auto;white-space:nowrap;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line)}nav::before{display:none}nav a{padding:5px 8px}header{padding:50px 0 35px}section,.setup{scroll-margin-top:65px}.pair,.notes{grid-template-columns:1fr}.code{border-left:0;border-top:1px solid var(--line)}.diagram{min-height:170px}.heading{flex-wrap:wrap}.source{margin-left:0;width:100%}section{padding:40px 0}.notes{gap:12px}}
 </style>
-<style>.coder-guide{margin-top:36px}.coder-guide h3{margin:0 0 8px;font-size:19px}.coder-guide>p{color:#59635e}.guide-step{display:grid;grid-template-columns:minmax(180px,.75fr) minmax(0,1.25fr);border-top:1px solid var(--line)}.guide-step>div{padding:20px 22px 20px 0}.guide-step h4{font-size:14px;margin:0 0 8px;color:var(--accent)}.guide-step p{margin:0;color:#59635e}.guide-step pre{background:var(--soft);max-height:440px;margin:12px 0;border-radius:5px}.guide-step code{font:inherit}@media(max-width:800px){.guide-step{grid-template-columns:1fr}.guide-step>div{padding:18px 0 0}.guide-step pre{margin:12px 0 18px}}</style>
+<style>.coder-guide{margin-top:36px}.coder-guide h3{margin:0 0 8px;font-size:19px}.coder-guide>p{color:#59635e}.guide-step{display:grid;grid-template-columns:minmax(180px,.75fr) minmax(0,1.25fr);border-top:1px solid var(--line)}.guide-step>div{padding:20px 22px 20px 0}.guide-step h4{font-size:14px;margin:0 0 8px;color:var(--accent)}.guide-step p{margin:0;color:#59635e}.guide-step pre{background:var(--soft);max-height:440px;margin:12px 0;border-radius:5px}.guide-step code{font:inherit}@media(max-width:800px){.guide-step{grid-template-columns:1fr}.guide-step>div{padding:18px 0 0}.guide-step pre{margin:12px 0 18px}}.callchain{margin-top:16px;border:1px solid var(--line);border-radius:8px;background:var(--soft);padding:22px 16px 28px}.callchain h3{margin:0 0 6px;font-size:15px}.callchain>.lead{margin:0 0 18px;color:#59635e;font-size:13px}.cc{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}.cc-node{border:1px solid #cdd8d1;background:#fff;border-radius:5px;padding:7px 10px;font:12px/1.45 ui-monospace,Consolas,monospace;text-align:center;max-width:100%}.cc-node.accent{border-color:#96b5a1;color:#335844;background:#f9fdf9}.cc-cond{font:12px/1.45 ui-monospace,Consolas,monospace;color:#335844;background:#fff;border:1px dashed #96b5a1;border-radius:5px;padding:5px 8px;text-align:center;max-width:100%}.branch .fork-2,.branch .fork-3{grid-template-columns:1fr}.cc-note{font-size:11px;line-height:1.4;color:var(--muted);text-align:center}.cc-arrow{color:#91a598;font-size:14px;line-height:1}.fork{display:grid;gap:14px;width:100%;margin-top:2px}.fork-2{grid-template-columns:1fr 1fr}.fork-3{grid-template-columns:1fr 1fr 1fr}.branch{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:10px 8px 0;border-top:1px solid #d5e0da}</style>
 </head>
 <body><nav aria-label="章节"><a href="#setup">准备</a><a href="#s01">01 模型</a><a href="#s02">02 提示词</a><a href="#s03">03 结构化</a><a href="#s04">04 工具</a><a href="#s05">05 图</a><a href="#s06">06 Agent</a><a href="#s07">07 记忆</a><a href="#s08">08 审批</a><a href="#s09">09 综合实例</a></nav><main>
 <header><div class="eyebrow">LANGCHAIN / LANGGRAPH · NOTES</div><h1>用图理解 Agent</h1><p>从一次模型调用，到工具、状态、记忆与人工介入。左边看链路，右边看完整代码与重点；完整实现以项目里的代码为准。</p></header>
@@ -693,7 +693,93 @@ builder = StateGraph(RefundState)
             print(<span class="tok-string">&quot;请输入 y 或 n。&quot;</span>)
         pending = Command(resume=(answer == <span class="tok-string">&quot;y&quot;</span>))
     print(<span class="tok-string">&quot;状态：&quot;</span>, result[<span class="tok-string">&quot;status&quot;</span>])
-    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])</code></pre></div></div><div class="notes"><p><b>01 / 组件</b>模型提取订单号和原因；<code>interrupt</code> 负责追问和审批暂停；工具查本地订单；Python 规则判断资格；状态图负责路由；检查点记住追问和审批停在哪一步。</p><p><b>02 / 逻辑</b>两项都齐才查单。缺订单号或原因时固定追问 3 步，把补充合并进已有字段；满 3 步仍缺才结束。只有符合规则的订单才进入审批。批准后模拟退款，成功和失败是不同结果。模型不决定退款资格。</p></div><!-- guide:start --><div class="coder-guide"><h3>从程序员的视角：边设计边对照代码</h3><p>先看左边要解决的问题，再看右边源码。以下片段按设计顺序排列，来自同一个 s09 文件，并非独立可运行程序。</p><div class="guide-step"><div><h4>01 · 先确定数据</h4><p>哪些信息需要在节点之间传递？把用户原文、提取结果、追问次数、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。</p></div><pre><code><span class="tok-keyword">class</span> RefundState(TypedDict):
+    print(<span class="tok-string">&quot;结果：&quot;</span>, result[<span class="tok-string">&quot;result&quot;</span>])</code></pre></div></div><div class="callchain">
+<h3>代码调用链</h3>
+<p class="lead">方框是函数。虚线框是判断，左右两支才是分支。extract_request 自己不跳转，它写完状态后，由 route_request 决定下一站。</p>
+<div class="cc">
+<div class="cc-node">__main__ · while True: app.invoke</div>
+<div class="cc-arrow">↓ 进入图</div>
+<div class="cc-node">START</div>
+<div class="cc-arrow">↓ add_edge(START, "extract")</div>
+<div class="cc-node accent">extract_request</div>
+<div class="cc-note">只写入 order_id、reason，函数里没有 if 跳转</div>
+<div class="cc-arrow">↓</div>
+<div class="cc-cond">route_request · add_conditional_edges("extract", route_request)</div>
+<div class="fork fork-2">
+<div class="branch">
+<div class="cc-cond">订单号和原因都有<br>return "lookup"</div>
+<div class="cc-arrow">↓</div>
+<div class="cc-node accent">check_order</div>
+<div class="cc-note">节点名是 lookup。只返回 {"order": ...}</div>
+<div class="cc-arrow">↓ add_edge("lookup", "policy") 固定边，没有判断</div>
+<div class="cc-node accent">check_policy</div>
+<div class="cc-note">这里才检查订单：不存在、未支付、已退款、超过 30 天，都写成不合格</div>
+<div class="cc-arrow">↓</div>
+<div class="cc-cond">route_policy · 返回值再查字典 {"approval":"approval","finish":END}</div>
+<div class="fork fork-2">
+<div class="branch">
+<div class="cc-cond">status == "eligible"<br>return "approval"</div>
+<div class="cc-arrow">↓</div>
+<div class="cc-node accent">approve_refund · interrupt</div>
+<div class="cc-note">while 读到 kind=approval，把 y/n 变成 True/False</div>
+<div class="fork fork-2">
+<div class="branch">
+<div class="cc-cond">resume=True<br>Command(goto="refund")</div>
+<div class="cc-node accent">refund</div>
+<div class="fork fork-2">
+<div class="branch"><div class="cc-cond">simulate_failure</div><div class="cc-node">refund_failed → END</div></div>
+<div class="branch"><div class="cc-cond">否则</div><div class="cc-node">refund_succeeded → END</div></div>
+</div>
+</div>
+<div class="branch">
+<div class="cc-cond">resume=False<br>Command(goto="reject")</div>
+<div class="cc-node accent">reject</div>
+<div class="cc-arrow">↓</div>
+<div class="cc-node">rejected → END</div>
+</div>
+</div>
+</div>
+<div class="branch">
+<div class="cc-cond">不是 eligible<br>return "finish"</div>
+<div class="cc-arrow">↓ 字典把 finish 对到 END</div>
+<div class="cc-node">END</div>
+<div class="cc-note">订单不存在 / 未支付或已退款 / 超期。没有叫 finish 的函数</div>
+</div>
+</div>
+</div>
+<div class="branch">
+<div class="cc-cond">缺订单号或原因<br>return "clarify"</div>
+<div class="cc-arrow">↓</div>
+<div class="cc-node accent">clarify · interrupt</div>
+<div class="cc-note">while 读到 kind=clarify，把补充文字放进 resume，再 invoke</div>
+<div class="cc-arrow">↓ 合并字段后 clarify_turns + 1</div>
+<div class="cc-cond">route_clarify · add_conditional_edges("clarify", route_clarify)</div>
+<div class="fork fork-3">
+<div class="branch">
+<div class="cc-cond">clarify_turns &lt; 3</div>
+<div class="cc-arrow">↓ return "clarify"</div>
+<div class="cc-node accent">回到 clarify</div>
+<div class="cc-note">再问下一句</div>
+</div>
+<div class="branch">
+<div class="cc-cond">已满 3 步，且两项都齐</div>
+<div class="cc-arrow">↓ return "lookup"</div>
+<div class="cc-node accent">check_order</div>
+<div class="cc-note">接上左边的查单</div>
+</div>
+<div class="branch">
+<div class="cc-cond">已满 3 步，仍缺</div>
+<div class="cc-arrow">↓ return "missing"</div>
+<div class="cc-node accent">missing_info</div>
+<div class="cc-arrow">↓ add_edge → END</div>
+<div class="cc-node">missing_info → END</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="notes"><p><b>01 / 组件</b>模型提取订单号和原因；<code>interrupt</code> 负责追问和审批暂停；工具查本地订单；Python 规则判断资格；状态图负责路由；检查点记住追问和审批停在哪一步。</p><p><b>02 / 逻辑</b>两项都齐才查单。缺订单号或原因时固定追问 3 步，把补充合并进已有字段；满 3 步仍缺才结束。只有符合规则的订单才进入审批。批准后模拟退款，成功和失败是不同结果。模型不决定退款资格。</p></div><!-- guide:start --><div class="coder-guide"><h3>从程序员的视角：边设计边对照代码</h3><p>先看左边要解决的问题，再看右边源码。以下片段按设计顺序排列，来自同一个 s09 文件，并非独立可运行程序。</p><div class="guide-step"><div><h4>01 · 先确定数据</h4><p>哪些信息需要在节点之间传递？把用户原文、提取结果、追问次数、订单和最终结果放进共享状态。NotRequired 表示字段可以稍后才写入。</p></div><pre><code><span class="tok-keyword">class</span> RefundState(TypedDict):
     user_text: str
     order_id: NotRequired[str | <span class="tok-keyword">None</span>]
     reason: NotRequired[str | <span class="tok-keyword">None</span>]

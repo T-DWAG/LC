@@ -95,7 +95,7 @@
 <body>
 <header>
   <h1>LangGraph 完整组合实例</h1>
-  <p>每个例子都是可运行脚本，优先对齐官方 Graph API / interrupt / persistence / time-travel / stores。需 <code style="font-size:12px;background:#f0f0f0;padding:1px 5px;border-radius:4px">OPENAI_API_KEY</code> 的已标注（A/D/E/G 可不需要）。</p>
+  <p>每个例子都是可运行脚本，优先对齐官方 Graph API / interrupt / persistence / time-travel / stores。调模型的例子（A/B/C）需先按 <code style="font-size:12px;background:#f0f0f0;padding:1px 5px;border-radius:4px">s00_env.md</code> 配好 .env；D/E/F/G 不调模型。</p>
 </header>
 
 <div class="layout">
@@ -115,17 +115,33 @@ const RECIPES = [
     id: "r1",
     n: "实例 A",
     title: "最小顺序图",
-    sub: "State + 3 节点顺序（无 LLM）",
-    lead: "对齐官方 use-graph-api / time-travel 的顺序思路：纯函数节点串起来，先看懂 State 怎么流动。",
+    sub: "State + 3 节点顺序（2 次模型调用）",
+    lead: "三个节点顺序执行：定主题 → 写笑话 → 润色。State 字段逐步被节点填满，先看懂数据怎么流动。",
     bridge: "<strong>≈ Eino：</strong>最小 Graph：三个 Lambda 节点 + 边。",
-    run: "保存为 <code>a_sequence.py</code>：<code>pip install -U langgraph</code>，再 <code>python a_sequence.py</code>（无需 API Key）。",
-    flow: "<b>START</b> → generate_topic → write_joke → polish → <b>END</b>；全程不调模型，只看状态合并。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core python-dotenv</code>，按 s00_env.md 配好 <code>.env</code>（OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL），再 <code>python a_sequence.py</code>。",
+    flow: "<b>START</b> → generate_topic → write_joke（调模型）→ polish（调模型）→ <b>END</b>；每个节点只返回自己要改的字段。",
     combo: ["State", "add_node", "add_edge", "START/END"],
-    code: `"""实例 A：最小顺序图（无 LLM）
-对齐：docs.langchain.com/oss/python/langgraph/use-graph-api 顺序图思路
+    code: `"""实例 A：最小顺序图（三个节点，其中两个调模型）
+对应 code/s05_min_graph.py
 """
-from typing_extensions import TypedDict, NotRequired
-from langgraph.graph import StateGraph, START, END
+import os
+
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, StateGraph
+from pydantic import SecretStr
+from typing_extensions import NotRequired, TypedDict
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 
 class State(TypedDict):
@@ -134,135 +150,141 @@ class State(TypedDict):
     polished: NotRequired[str]
 
 
-def generate_topic(state: State):
-    return {"topic": "socks in the dryer"}
+def as_text(content: str | list[str | dict]) -> str:
+    if not isinstance(content, str):
+        raise TypeError(f"expected str, got {type(content).__name__}")
+    return content.strip()
 
 
-def write_joke(state: State):
-    return {"joke": f"Why do {state['topic']} disappear? They elope!"}
+llm = make_llm()
 
 
-def polish(state: State):
-    return {"polished": state["joke"].upper()}
+def generate_topic(state: State) -> State:
+    return {"topic": state.get("topic") or "socks in the dryer"}
 
 
-graph = (
-    StateGraph(State)
-    .add_node("generate_topic", generate_topic)
-    .add_node("write_joke", write_joke)
-    .add_node("polish", polish)
-    .add_edge(START, "generate_topic")
-    .add_edge("generate_topic", "write_joke")
-    .add_edge("write_joke", "polish")
-    .add_edge("polish", END)
-    .compile()
-)
+def write_joke(state: State) -> State:
+    topic = state.get("topic")
+    if not topic:
+        raise ValueError("topic is not set")
+    msg = llm.invoke(f"Write a one-line joke about {topic}. Reply with the joke only.")
+    return {"joke": as_text(msg.content)}
 
-print(graph.invoke({}))
+
+def polish(state: State) -> State:
+    joke = state.get("joke")
+    if not joke:
+        raise ValueError("joke is not set")
+    msg = llm.invoke(
+        "Rewrite this joke so it is shorter and funnier. Reply with the joke only.\\n" + joke
+    )
+    return {"polished": as_text(msg.content)}
+
+
+graph = StateGraph(State)
+graph.add_node("generate_topic", generate_topic)
+graph.add_node("write_joke", write_joke)
+graph.add_node("polish", polish)
+graph.add_edge(START, "generate_topic")
+graph.add_edge("generate_topic", "write_joke")
+graph.add_edge("write_joke", "polish")
+graph.add_edge("polish", END)
+
+result = graph.compile().invoke({"topic": "电梯里的陌生人"})
+print("topic:", result["topic"])
+print("joke:", result["joke"])
+print("polished:", result["polished"])
 `,
   },
   {
     id: "r2",
     n: "实例 B",
-    title: "官方计算器 Agent",
-    sub: "Graph API：llm_call ⇄ tool_node",
-    lead: "完整对齐官方 quickstart Graph API：add/multiply/divide、MessagesState、should_continue；模型改为 ChatOpenAI。",
-    bridge: "官方：https://docs.langchain.com/oss/python/langgraph/quickstart （Anthropic 换成 OpenAI）。",
-    run: "<code>pip install -U langgraph langchain-openai langchain-core</code>。需 <code>OPENAI_API_KEY</code>。",
-    flow: "<b>START</b> → llm_call → <b>should_continue</b> → tool_node → llm_call … → END",
+    title: "计算器 Agent",
+    sub: "Graph API：llm_call ⇄ tools",
+    lead: "add/multiply/divide 三个工具，自定义 MessageState（带 llm_calls 计数），用预置 ToolNode 执行工具，tools_condition 决定继续还是结束。",
+    bridge: "对应 code/s06_calc_agent.py。≈ Eino：Branch + Tools 节点。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core python-dotenv</code>，按 s00_env.md 配好 <code>.env</code>（OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL）。",
+    flow: "<b>START</b> → llm_call → <b>tools_condition</b> → tools → llm_call … → END",
     combo: ["Tools", "bind_tools", "条件边", "StateGraph"],
-    code: `"""实例 B：官方 Graph API 计算器 Agent
-来源结构对齐 docs.langchain.com/oss/python/langgraph/quickstart
-模型：ChatOpenAI(gpt-4o-mini)
+    code: `"""实例 B：计算器 Agent（llm_call ⇄ tools）
+对应 code/s06_calc_agent.py
 """
-from typing import Literal
 import operator
-from typing_extensions import TypedDict, Annotated
+import os
+from typing import Annotated
+
+from dotenv import load_dotenv
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langchain.messages import (
-    AnyMessage, SystemMessage, HumanMessage, ToolMessage,
-)
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import START, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
+from pydantic import SecretStr
+from typing_extensions import TypedDict
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
 
 
-@tool
-def multiply(a: int, b: int) -> int:
-    """Multiply \`a\` and \`b\`."""
-    return a * b
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 
 @tool
 def add(a: int, b: int) -> int:
-    """Adds \`a\` and \`b\`."""
+    """add a and b"""
     return a + b
 
 
 @tool
+def multiply(a: int, b: int) -> int:
+    """multiply a and b"""
+    return a * b
+
+
+@tool
 def divide(a: int, b: int) -> float:
-    """Divide \`a\` and \`b\`."""
+    """divide a by b"""
     return a / b
 
 
 tools = [add, multiply, divide]
-tools_by_name = {t.name: t for t in tools}
-model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-model_with_tools = model.bind_tools(tools)
+model_with_tools = make_llm().bind_tools(tools)
 
 
-class MessagesState(TypedDict):
+class MessageState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
     llm_calls: int
 
 
-def llm_call(state: MessagesState):
-    """LLM decides whether to call a tool or not"""
+def llm_call(state: MessageState):
     return {
         "messages": [
             model_with_tools.invoke(
-                [
-                    SystemMessage(
-                        content="You are a helpful assistant tasked with performing arithmetic on a set of inputs."
-                    )
-                ]
-                + state["messages"]
+                [SystemMessage(content="You are a helpful arithmetic assistant.")] + state["messages"]
             )
         ],
-        "llm_calls": state.get("llm_calls", 0) + 1,
+        "llm_calls": state["llm_calls"] + 1,
     }
 
 
-def tool_node(state: MessagesState):
-    """Performs the tool call"""
-    result = []
-    for tool_call in state["messages"][-1].tool_calls:
-        t = tools_by_name[tool_call["name"]]
-        observation = t.invoke(tool_call["args"])
-        result.append(
-            ToolMessage(content=str(observation), tool_call_id=tool_call["id"])
-        )
-    return {"messages": result}
-
-
-def should_continue(state: MessagesState) -> Literal["tool_node", "__end__"]:
-    last_message = state["messages"][-1]
-    if last_message.tool_calls:
-        return "tool_node"
-    return END
-
-
-agent_builder = StateGraph(MessagesState)
+agent_builder = StateGraph(MessageState)
 agent_builder.add_node("llm_call", llm_call)
-agent_builder.add_node("tool_node", tool_node)
+agent_builder.add_node("tools", ToolNode(tools))
 agent_builder.add_edge(START, "llm_call")
-agent_builder.add_conditional_edges(
-    "llm_call", should_continue, ["tool_node", END]
-)
-agent_builder.add_edge("tool_node", "llm_call")
+agent_builder.add_conditional_edges("llm_call", tools_condition)
+agent_builder.add_edge("tools", "llm_call")
 agent = agent_builder.compile()
 
-messages = [HumanMessage(content="Add 3 and 4. Then multiply the result by 2.")]
-out = agent.invoke({"messages": messages, "llm_calls": 0})
+init: MessageState = {
+    "messages": [HumanMessage(content="Add 3 and 4. Then multiply the result by 2.")],
+    "llm_calls": 0,
+}
+out = agent.invoke(init)
 for m in out["messages"]:
     m.pretty_print()
 print("llm_calls:", out["llm_calls"])
@@ -275,24 +297,39 @@ print("llm_calls:", out["llm_calls"])
     sub: "InMemorySaver + 同 thread_id 两轮",
     lead: "手写小图 + InMemorySaver：同一 thread_id 第二次提问能接上第一次说过的名字。",
     bridge: "官方 persistence：Checkpointer = 线程级短状态。≈ Eino Checkpoint。",
-    run: "<code>pip install -U langgraph langchain-openai</code>。两次 invoke 必须同一 <code>thread_id</code>。",
+    run: "<code>pip install -U langgraph langchain-openai langchain-core python-dotenv</code>，按 s00_env.md 配好 <code>.env</code>（OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL）。两次 invoke 必须同一 <code>thread_id</code>。",
     flow: "<b>compile(checkpointer=…)</b> → invoke(…, thread_id) → 再 invoke 同 thread → 模型看得到历史 messages",
     combo: ["StateGraph", "InMemorySaver", "thread_id", "MessagesState"],
     code: `"""实例 C：Checkpointer 续聊
-对齐：docs.langchain.com/oss/python/langgraph/persistence
+对应 code/s07_checkpoint.py
 """
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import StateGraph, START, END, MessagesState
-from langchain_openai import ChatOpenAI
-from langchain.messages import HumanMessage, SystemMessage
+import os
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, MessagesState, StateGraph
+from pydantic import SecretStr
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
+
+
+llm = make_llm()
 
 
 def call_model(state: MessagesState):
-    msgs = [SystemMessage(content="用中文简短回答，记住用户说过的信息。")] + list(
-        state["messages"]
-    )
+    msgs = [SystemMessage(content="You are a helpful assistant.")] + state["messages"]
     return {"messages": [llm.invoke(msgs)]}
 
 
@@ -304,13 +341,15 @@ app = (
     .compile(checkpointer=InMemorySaver())
 )
 
-cfg = {"configurable": {"thread_id": "chat-42"}}
+cfg: RunnableConfig = {"configurable": {"thread_id": "123"}}
+# 换成 thread_id "456" 就是另一份存档，问它 my name 会答不上来
+cfg2: RunnableConfig = {"configurable": {"thread_id": "456"}}
 
-r1 = app.invoke({"messages": [HumanMessage(content="我叫阿旺，住在成都。")]}, cfg)
-print("1:", r1["messages"][-1].content)
+r1 = app.invoke({"messages": [HumanMessage(content="call me T-Dwag,remember my name.")]}, config=cfg)
+print(r1["messages"][-1].content)
 
-r2 = app.invoke({"messages": [HumanMessage(content="我叫什么？住哪？")]}, cfg)
-print("2:", r2["messages"][-1].content)
+r2 = app.invoke({"messages": [HumanMessage(content="what is my name?")]}, config=cfg)
+print(r2["messages"][-1].content)
 `,
   },
   {
@@ -318,30 +357,36 @@ print("2:", r2["messages"][-1].content)
     n: "实例 D",
     title: "中断审批 HITL",
     sub: "interrupt + Command(resume) 批准/拒绝",
-    lead: "官方 approve/reject 模式：interrupt 抛出 question/details；resume True→proceed，False→cancel。用 invoke + __interrupt__ 好读。",
-    bridge: "官方 interrupts 页 Approve or reject。≈ Eino 人工节点。必须 checkpointer。",
+    lead: "批准 / 拒绝模式：interrupt 抛出 question/details；resume True→proceed，False→cancel。用 invoke + __interrupt__ 好读。",
+    bridge: "对应 code/s08_hitl.py。≈ Eino 人工节点。必须 checkpointer。",
     run: "<code>pip install -U langgraph</code>。无需模型。生产可用 <code>stream_events</code> 看 <code>stream.interrupts</code>。",
     flow: "<b>START</b> → approval(interrupt) → resume → proceed | cancel → END",
     combo: ["interrupt", "Command", "InMemorySaver", "条件 goto"],
-    code: `"""实例 D：中断审批 HITL（官方 approve/reject）
-对齐：docs.langchain.com/oss/python/langgraph/interrupts
+    code: `"""实例 D：中断审批 HITL（批准 / 拒绝）
+对应 code/s08_hitl.py
 用 invoke；中断载荷在 result["__interrupt__"]
 """
 from typing import Literal, Optional, TypedDict
+
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 
+# 审批状态：action_details 是待审的动作，status 是还在等、已通过、还是已拒绝。
 class ApprovalState(TypedDict):
     action_details: str
     status: Optional[Literal["pending", "approved", "rejected"]]
 
 
+# 审批节点。interrupt 把问题抛给外面并停住当前这轮。
+# 同一个 thread 再次 invoke(Command(resume=...)) 时，resume 的值变成 decision。
+# Command(goto=...) 按这个值跳到 proceed 或 cancel，所以这里不用再加普通边。
 def approval_node(state: ApprovalState) -> Command[Literal["proceed", "cancel"]]:
     decision = interrupt(
         {
-            "question": "Approve this action?",
+            "question": "Do you approve of this action?",
             "details": state["action_details"],
         }
     )
@@ -356,28 +401,36 @@ def cancel_node(state: ApprovalState):
     return {"status": "rejected"}
 
 
-builder = StateGraph(ApprovalState)
-builder.add_node("approval", approval_node)
-builder.add_node("proceed", proceed_node)
-builder.add_node("cancel", cancel_node)
-builder.add_edge(START, "approval")
-builder.add_edge("proceed", END)
-builder.add_edge("cancel", END)
-graph = builder.compile(checkpointer=InMemorySaver())
+# interrupt 必须有 checkpointer，挂起的位置才有地方记下来。
+# InMemorySaver 只存在当前进程里，按 thread_id 分开每一单。
+graph = (
+    StateGraph(ApprovalState)
+    .add_node("approval", approval_node)
+    .add_node("proceed", proceed_node)
+    .add_node("cancel", cancel_node)
+    .add_edge(START, "approval")
+    .add_edge("proceed", END)
+    .add_edge("cancel", END)
+    .compile(checkpointer=InMemorySaver())
+)
 
-cfg = {"configurable": {"thread_id": "approval-123"}}
+
+# 第一单：转账。第一次 invoke 停在 approval，结果里有 __interrupt__，status 还是 pending。
+cfg: RunnableConfig = {"configurable": {"thread_id": "123"}}
 paused = graph.invoke(
     {"action_details": "Transfer $500", "status": "pending"},
-    cfg,
+    config=cfg,
 )
-print("interrupt:", paused.get("__interrupt__"))
+print("interrupt", paused.get("__interrupt__"))
 
+# 同一个 thread_id 恢复。resume=True 传回 interrupt()，于是走进 proceed。
 approved = graph.invoke(Command(resume=True), cfg)
 print("after approve:", approved["status"])
 
-# 另开 thread 演示拒绝
-cfg2 = {"configurable": {"thread_id": "approval-456"}}
+# 第二单用另一个 thread_id，和上面那单的存档互不影响。
+cfg2: RunnableConfig = {"configurable": {"thread_id": "456"}}
 graph.invoke({"action_details": "Delete DB", "status": "pending"}, cfg2)
+# resume=False 传回 interrupt()，于是走进 cancel。
 rejected = graph.invoke(Command(resume=False), cfg2)
 print("after reject:", rejected["status"])
 `,
@@ -472,7 +525,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langchain.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 
 class State(TypedDict):

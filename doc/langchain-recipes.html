@@ -120,13 +120,28 @@ const RECIPES = [
     combo: ["Prompt", "Chat Model", "Structured Output"],
     flow: "<b>输入</b> 问题字典 → <b>Prompt</b> 填模板 → <b>Model</b>（带 structured_output）→ <b>Brief 对象</b>",
     bridge: "≈ Eino：ChatTemplate → ChatModel → 按 schema 解析。",
-    run: "保存为 <code>a_qa.py</code> 后：<code>pip install -U langchain-openai pydantic</code>，再 <code>python a_qa.py</code>",
+    run: "保存为 <code>a_qa.py</code> 后：<code>pip install -U langchain-openai langchain-core python-dotenv</code>，并按 s00_env.md 配好 <code>.env</code>（OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL），再 <code>python a_qa.py</code>",
     code: `"""实例 A：Prompt + Model + Structured Output
 概念组合：一次模型调用的最小完整闭环
 """
-from pydantic import BaseModel, Field
+import os
+
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field, SecretStr
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 class Brief(BaseModel):
     title: str = Field(description="短标题")
@@ -137,7 +152,7 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "请介绍：{topic}"),
 ])
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).with_structured_output(Brief)
+llm = make_llm().with_structured_output(Brief)
 
 # Prompt | Model  （Parser 已熔进 with_structured_output）
 chain = prompt | llm
@@ -156,11 +171,14 @@ for i, p in enumerate(result.points, 1):
     combo: ["Split", "Embeddings", "VectorStore", "Retriever", "Prompt", "Chat Model"],
     flow: "<b>离线索引</b> 文档→切分→向量化→入库　|　<b>在线问答</b> 问题→检索→塞进 Prompt→Model→答案",
     bridge: "官方文档：https://docs.langchain.com/oss/python/langchain/knowledge-base",
-    run: "<code>pip install -U langchain-openai langchain-core langchain-text-splitters</code>。生产把 InMemory 换成 Chroma/pgvector。",
+    run: "<code>pip install -U langchain-openai langchain-core langchain-text-splitters python-dotenv</code>，并按 s00_env.md 配好 <code>.env</code>（OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL）。Embeddings 用同一个 <code>OPENAI_BASE_URL</code>，接口需支持 text-embedding-3-large（不支持就换成接口提供的向量模型）。生产把 InMemory 换成 Chroma/pgvector。",
     code: `"""实例 B：官方同款 RAG 流水线
 来源结构对齐 docs.langchain.com/oss/python/langchain/knowledge-base
 切分 → Embeddings → VectorStore → Retriever → Prompt | LLM
 """
+import os
+
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -168,6 +186,19 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import SecretStr
+
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 # --- 1) 文档（官方示例可从 PDF load；这里用内联 Document）---
 docs = [
@@ -220,7 +251,7 @@ rag = (
         "question": RunnablePassthrough(),
     }
     | prompt
-    | ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    | make_llm()
     | StrOutputParser()
 )
 
@@ -241,9 +272,25 @@ print(rag.invoke("Agent 和 LCEL 有啥差别？"))`
     code: `"""实例 C：Model + Tools + Agent 循环
 概念组合：工具调用闭环（create_react_agent）
 """
+import os
+
+from dotenv import load_dotenv
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
+from pydantic import SecretStr
+
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 @tool
 def multiply(a: int, b: int) -> int:
@@ -256,7 +303,7 @@ def fake_weather(city: str) -> str:
     data = {"成都": "阴，18°C", "上海": "小雨，22°C"}
     return data.get(city, f"{city}：晴，25°C")
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = make_llm()
 agent = create_react_agent(llm, tools=[multiply, fake_weather])
 
 def ask(text: str) -> None:
@@ -282,14 +329,31 @@ ask("先查上海天气，再把温度数字 22 乘以 2，告诉我结果")`
     code: `"""实例 D：LangGraph = State + 条件边 + Tool + Checkpoint
 概念组合：有状态编排（从 Eino Graph 对照最直接）
 """
+import os
 from typing import Annotated, Literal, TypedDict
+
+from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
+from pydantic import SecretStr
+
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 @tool
 def order_status(order_id: str) -> str:
@@ -297,7 +361,7 @@ def order_status(order_id: str) -> str:
     db = {"A100": "已发货，预计明天到", "B200": "运输中，今日达"}
     return db.get(order_id, f"未找到订单 {order_id}")
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = make_llm()
 tools = [order_status]
 llm_tools = llm.bind_tools(tools)
 
@@ -325,8 +389,8 @@ graph.add_edge(START, "assistant")
 graph.add_conditional_edges("assistant", need_tools, {"tools": "tools", "end": END})
 graph.add_edge("tools", "assistant")  # 工具结果回来继续想
 
-app = graph.compile(checkpointer=MemorySaver())
-cfg = {"configurable": {"thread_id": "user-demo"}}
+app = graph.compile(checkpointer=InMemorySaver())
+cfg: RunnableConfig = {"configurable": {"thread_id": "user-demo"}}
 
 def chat(text: str) -> None:
     out = app.invoke({"messages": [HumanMessage(content=text)]}, cfg)
@@ -347,15 +411,31 @@ chat("刚才那个订单什么状态？")  # 同 thread，靠 checkpoint 续得�
     combo: ["Retriever", "Tools", "Agent", "Prompt(system)"],
     flow: "<b>用户提问</b> → Agent 决定是否 <b>search_docs</b> → 用检索结果再答",
     bridge: "Eino 同理：Retriever 包成 Tool，交给 Graph/Agent。",
-    run: "依赖同实例 C。适合作为「入门作品集」的第二小项。",
+    run: "依赖同实例 C（含 Embeddings 的接口要求见实例 B）。适合作为「入门作品集」的第二小项。",
     code: `"""实例 E：Retriever 作为 Tool + Agent
 概念组合：RAG 能力交给模型按需调用
 """
+import os
+
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langgraph.prebuilt import create_react_agent
+from pydantic import SecretStr
+
+
+load_dotenv(override=True)  # 项目 .env 覆盖系统里已有的同名变量
+
+
+def make_llm(*, temperature: float = 0.0) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=os.environ["OPENAI_MODEL"],
+        api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+        base_url=os.environ["OPENAI_BASE_URL"],
+        temperature=temperature,
+    )
 
 docs = [
     Document(page_content="退货政策：签收 7 天内可无理由退货，电点未拆封。"),
@@ -380,7 +460,7 @@ def escalate(reason: str) -> str:
     return f"已创建工单，原因：{reason}"
 
 agent = create_react_agent(
-    ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    make_llm(),
     tools=[search_docs, escalate],
     prompt="你是售后助手。先 search_docs；资料不够再 escalate。",
 )
@@ -410,7 +490,8 @@ ask("我想投诉快递员态度，政策里没有写")`
 """
 from typing import Annotated, TypedDict
 from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.types import Command, interrupt
@@ -458,8 +539,8 @@ g.add_edge(START, "draft")
 g.add_edge("draft", "approve")
 g.add_edge("approve", END)
 
-app = g.compile(checkpointer=MemorySaver())
-cfg = {"configurable": {"thread_id": "hitl-1"}}
+app = g.compile(checkpointer=InMemorySaver())
+cfg: RunnableConfig = {"configurable": {"thread_id": "hitl-1"}}
 
 
 # ---------- 1) 跑到中断 ----------
