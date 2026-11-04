@@ -4,7 +4,7 @@
 需要模型服务（.env 见 s00_env.md）和 langgraph>=1.2。支付网关是本文件内的模拟类。
 
 生产里最危险的一步不是调模型，而是「审批通过后调支付网关」：
-  1. 网关偶发 502，重试就能成功；
+  1. 网关明确拒绝请求、未提交，稍后恢复，可安全重试；真实 502 不保证未处理；
   2. 网关已扣款但响应超时——调用方不知道钱到底退了没有；
   3. 审批等了几小时，订单在别处已被退掉；
   4. 模型服务自己也会挂，不应拖垮整条流程。
@@ -33,7 +33,7 @@ ORDERS = copy.deepcopy(ORDERS0)
 
 
 class GatewayUnavailable(Exception):
-    """网关明确没处理：502/503/连接被拒。重试安全。"""
+    """模拟网关明确拒绝、确认未提交的请求；真实 502 未必能证明未处理。"""
 
 
 class GatewayTimeout(Exception):
@@ -47,7 +47,7 @@ class FakeGateway:
     def refund(self, key: str, order_id: str, amount: int) -> dict:
         self.calls += 1
         if self.mode == "down" or (self.mode == "flaky" and self.calls < 3):
-            raise GatewayUnavailable("502 Bad Gateway")
+            raise GatewayUnavailable("请求被明确拒绝，未提交")
         if key in self.ledger:  # 幂等：同一个 key 只生效一次，重复请求返回原结果
             return self.ledger[key]
         self.ledger[key] = {"order_id": order_id, "amount": amount}
@@ -116,7 +116,7 @@ def approval(state: State) -> Command[Literal["recheck", "finish"]]:
 
 
 def recheck(state: State) -> Command[Literal["charge", "finish"]]:
-    # 审批期间订单可能已在别处退掉：执行前必须重新读取最新状态。
+    # 审批期间订单可能已在别处退掉：先读最新状态；真实系统还要在执行时做原子校验。
     order = ORDERS[state["order_id"]]
     if order["status"] != "paid":
         return Command(update={"status": "stale", "note": "审批期间订单状态已变化，未执行"}, goto="finish")
@@ -183,7 +183,7 @@ def run(title: str, *, mode: str = "ok", stale: bool = False, model_down: bool =
 
 
 if __name__ == "__main__":
-    run("1 网关偶发 502（重试即可）", mode="flaky")
+    run("1 网关明确未提交（重试即可）", mode="flaky")
     run("2 已扣款但响应超时（幂等键兜底）", mode="timeout_after_commit")
     run("3 网关持续不可用（转对账）", mode="down")
     run("4 审批期间订单已被退（执行前复核）", stale=True)

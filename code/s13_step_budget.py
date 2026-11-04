@@ -1,32 +1,25 @@
-"""s13_step_budget.py — Agent 的步数预算：查不到时不要无限重试，留出最后一步诚实收尾。
+"""s13_step_budget.py — 查不到资料就停止，不把循环次数当成答案质量。
 
 项目根目录运行：python code/s13_step_budget.py
-需要模型服务，且服务端支持工具调用（见 s04、s06）。
-
-线上原型：知识库里没有答案，模型却不断换关键词再搜，一次请求烧掉几十次调用。
-做法：用 RemainingSteps 在撞上限之前改道到「收尾节点」，告诉用户实情，
-而不是等 GraphRecursionError 抛出来变成 500。
+需要模型服务（.env 见 s00_env.md）；知识库工具为模拟。
+业务约束：同一问题最多试两个不同检索词；空结果是业务结果，不是让模型无限重试的故障。
 """
 import os
+from typing import Literal
 
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.managed.is_last_step import RemainingSteps
-from langgraph.prebuilt import ToolNode
-from pydantic import SecretStr
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command
+from pydantic import BaseModel, Field, SecretStr
+from typing_extensions import NotRequired, TypedDict
 
 load_dotenv(override=True)
-SEARCH_CALLS = {"n": 0}
+MAX_SEARCHES = 2
 
 
-@tool
-def search_kb(query: str) -> str:
-    """在知识库中搜索。"""
-    SEARCH_CALLS["n"] += 1
-    return "未找到相关条目，请换一个关键词再试。"  # 模拟：库里确实没有
+class SearchPlan(BaseModel):
+    query: str = Field(description="与问题最相关的一个检索词")
 
 
 llm = ChatOpenAI(
@@ -35,46 +28,63 @@ llm = ChatOpenAI(
     base_url=os.environ["OPENAI_BASE_URL"],
     temperature=0,
 )
-llm_tools = llm.bind_tools([search_kb])
+planner = llm.with_structured_output(SearchPlan)
 
 
-class State(MessagesState):
-    remaining_steps: RemainingSteps  # 框架维护：距离 recursion_limit 还剩几步
+class State(TypedDict):
+    question: str
+    queries: NotRequired[list[str]]
+    hits: NotRequired[list[str]]
+    answer: NotRequired[str]
 
 
-def agent(state: State) -> dict:
-    return {"messages": [llm_tools.invoke(state["messages"])]}
+def plan(state: State) -> Command[Literal["search", "finish"]]:
+    tried = state.get("queries", [])
+    if len(tried) >= MAX_SEARCHES:
+        return Command(goto="finish")
+    result = planner.invoke(
+        f"问题：{state['question']}\n已尝试：{tried}。给一个不同的检索词，不要回答问题。"
+    )
+    if not isinstance(result, SearchPlan):
+        raise TypeError("模型未返回检索词")
+    query = result.query.strip()
+    if not query or query in tried:
+        return Command(goto="finish")  # 换汤不换药，停止浪费检索
+    return Command(update={"queries": [*tried, query]}, goto="search")
 
 
-def route(state: State) -> str:
-    last = state["messages"][-1]
-    if not getattr(last, "tool_calls", None):
-        return "done"
-    # 一轮 = agent + tools 两步；剩余不足以再走一轮就改道，别等异常。
-    return "wrap_up" if state["remaining_steps"] <= 3 else "tools"
+KB = {"发票": "报销发票抬头为星河科技有限公司。"}  # 模拟授权可见的知识库
 
 
-def wrap_up(state: State) -> dict:
-    # 不带工具再问一次：只能基于已有信息作答，并如实说明查不到。
-    note = SystemMessage(content="查询次数已用完。请根据已有结果如实告诉用户没有查到，不要编造。")
-    return {"messages": [llm.invoke([*state["messages"][:-1], note])]}
+def search(state: State) -> Command[Literal["plan", "finish"]]:
+    query = state["queries"][-1]
+    # 真实系统在这里查库，并核对租户权限；空结果与调用故障必须区分。
+    hit = next((doc for term, doc in KB.items() if term in query), None)
+    if hit:
+        return Command(update={"hits": [hit]}, goto="finish")
+    return Command(goto="plan")
+
+
+def finish(state: State) -> dict:
+    if not state.get("hits"):
+        # 没证据时不让模型用通用知识编造公司制度；用固定模板回应。
+        return {"answer": "知识库未找到这项公司制度，请向 HR 确认。"}
+    reply = llm.invoke(f"只根据下面的资料回答问题；资料不足就说不知道。\n资料：{state['hits']}\n问题：{state['question']}")
+    return {"answer": str(reply.content)}
 
 
 graph = (
     StateGraph(State)
-    .add_node("agent", agent)
-    .add_node("tools", ToolNode([search_kb]))
-    .add_node("wrap_up", wrap_up)
-    .add_edge(START, "agent")
-    .add_conditional_edges("agent", route, {"tools": "tools", "wrap_up": "wrap_up", "done": END})
-    .add_edge("tools", "agent")
-    .add_edge("wrap_up", END)
+    .add_node("plan", plan)
+    .add_node("search", search)
+    .add_node("finish", finish)
+    .add_edge(START, "plan")
+    .add_edge("finish", END)
     .compile()
 )
 
-
 if __name__ == "__main__":
-    ask = [SystemMessage(content="先用 search_kb 查询再回答；查不到就换关键词继续查。"), HumanMessage(content="公司年假怎么算？")]
-    out = graph.invoke({"messages": ask}, {"recursion_limit": 10})
-    print("搜索调用次数：", SEARCH_CALLS["n"])
-    print("最终回答：", out["messages"][-1].content)
+    for question in ("公司年假怎么算？", "报销发票抬头是什么？"):
+        out = graph.invoke({"question": question}, {"recursion_limit": 20})
+        print(question, "实际查询：", out.get("queries", []))
+        print("回答：", out["answer"])
