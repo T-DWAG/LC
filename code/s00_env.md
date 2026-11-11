@@ -9,6 +9,12 @@ python -m pip install -U langchain-openai langchain-core langgraph python-dotenv
 python -c "import langchain_openai, langchain_core, langgraph, dotenv; print('ok')"
 ```
 
+后面的课还要用到这些包（s10 SQLite 检查点、s12/s13 中间件、s13 deepagents 版、s14 MCP、s16 A2A）：
+
+```powershell
+python -m pip install -U "langchain[mcp]>=1.4" langgraph-checkpoint-sqlite "a2a-sdk[http-server]>=1.3" uvicorn deepagents
+```
+
 `conda activate` 报错时，先执行一次 `conda init powershell`，重开终端再激活。
 
 # 环境变量

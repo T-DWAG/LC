@@ -11,11 +11,13 @@ import io
 import keyword
 from pathlib import Path
 import re
+import sys
 import token
 import tokenize
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "doc" / "langgraph-zero2hero.html"
+PAGE_V2 = ROOT / "doc" / "langgraph-zero2hero-v2.html"
 # 与每节图示对应的重点行；其余代码仍完整显示。
 HIGHLIGHTS = {
     "s01_probe.py": [r"^def make_llm", r"^    return ChatOpenAI", r"^    llm = make_llm", r"^    msg=llm\.invoke", r"^    print\(msg\.content"],
@@ -27,6 +29,16 @@ HIGHLIGHTS = {
     "s07_checkpoint.py": [r"^def call_model", r"^    msgs=", r"^    return \{\"messages\"", r"^    StateGraph\(MessagesState\)", r"^    \.add_(?:node|edge)", r"^    \.compile\(checkpointer", r"^cfg: RunnableConfig", r"^r[12]=app\.invoke"],
     "s09_refund_agent.py": [r"^class RefundRequest", r"^class RefundState", r"^    clarify_turns:", r"^CLARIFY_TURNS", r"^@tool", r"^def lookup_order", r"^extractor =", r"^def (?:extract_request|route_request|clarify|route_clarify|check_order|check_policy|route_policy|approve_refund|refund|reject)\(", r"^    (?:decision|reply) = interrupt", r"^    return Command\(goto", r"^builder\.(?:add_node|add_edge|add_conditional_edges)", r"^app = builder\.compile", r"^        result = app\.invoke", r"^        if payload\.get\(\"kind\"\) == \"clarify\":"],
     "s08_hitl.py": [r"^def approval_node", r"^    decision = interrupt", r"^    return Command\(goto", r"^    StateGraph\(ApprovalState\)", r"^    \.add_(?:node|edge)", r"^    \.compile\(checkpointer", r"^paused = graph\.invoke", r"^approved = graph\.invoke", r"^rejected = graph\.invoke"],
+}
+# 第二版页面里由本脚本同步的节（s10–s12 的代码区仍保持手工维护）。
+HIGHLIGHTS_V2 = {
+    "s13_skills.py": [r"^def parse_skill", r"^SKILLS = ", r"^@tool", r"^def load_skill", r"^class SkillMiddleware", r"^    tools = \[load_skill\]", r"^    def wrap_model_call", r"^        return handler\(request\.override", r"^    return create_agent"],
+    "s13_skills_deepagents.py": [r"^backend = FilesystemBackend", r"^SOURCES = ", r"^                FilesystemMiddleware\(backend", r"^                SkillsMiddleware\(backend", r"^    return create_deep_agent", r"^        skills=SOURCES", r"^        permissions="],
+    "s14_mcp_server.py": [r"^mcp = FastMCP", r"^@mcp\.tool", r"^        raise ToolError", r"^    mcp\.run"],
+    "s14_mcp.py": [r"^from langchain\.mcp import MCPAdapter", r"^def is_destructive", r"^    async with MCPAdapter", r"^        tools = await adapter\.list_tools", r"^        destructive = ", r"^        gate = InterruptOnConfig", r"^            middleware=\[HumanInTheLoopMiddleware", r"^            out = await agent\.ainvoke", r"^                out = await agent\.ainvoke\(Command"],
+    "s15_multi_agent.py": [r"^def ask_expert", r"^supervisor = create_agent", r"^class Plan", r"^    results: Annotated", r"^def fan_out", r"^    return \[Send", r"^def transfer", r"^    return Command\(goto=to", r"^def route_handoff", r"^handoff = \("],
+    "s16_a2a_agents.py": [r"^class LangChainExecutor", r"^    async def execute", r"^        user = context\.metadata", r"^            await updater\.reject", r"^        config: RunnableConfig = ", r"^        await updater\.complete", r"^class BearerAuth", r"^    card = AgentCard"],
+    "s16_a2a.py": [r"^async def send", r"^        metadata=", r"^    async for response in client\.send_message", r"^def make_tool", r"^        description=f", r"^                card = await A2ACardResolver", r"^            tools\.append"],
 }
 
 
@@ -112,20 +124,29 @@ def sync_guide(page: str) -> str:
     return page
 
 
-def main() -> None:
-    page = PAGE.read_text(encoding="utf-8")
-    for name, patterns in HIGHLIGHTS.items():
+def sync_blocks(page: str, highlights: dict[str, list[str]]) -> str:
+    for name, patterns in highlights.items():
         source = (ROOT / "code" / name).read_text(encoding="utf-8")
         block = (f'<div class="code-label">完整代码 · {name} <span>绿色底色为重点</span></div>'
-                 f'<pre class="source-code"><code>{render_source(source, patterns)}</code></pre>')
+                        f'<pre class="source-code"><code>{render_source(source, patterns)}</code></pre>')
         # 每一节只替换自己的代码区，允许再次执行同步。
         pattern = rf'<div class="code-label">[^<]*{re.escape(name)}(?:\s*<span>.*?</span>)?</div><pre(?: class="source-code")?>(?:<code>)?.*?(?:</code>)?</pre>'
         page, count = re.subn(pattern, lambda _: block, page, count=0, flags=re.DOTALL)
         if count != 1:
             raise RuntimeError(f"找不到或重复的代码区域：{name} ({count})")
-    page = sync_guide(page)
+    return page
+
+
+def main() -> None:
+    page = sync_guide(sync_blocks(PAGE.read_text(encoding="utf-8"), HIGHLIGHTS))
     PAGE.write_text(page, encoding="utf-8", newline="\n")
     print(f"已同步 {len(HIGHLIGHTS)} 个脚本到 {PAGE}")
+    page = sync_blocks(PAGE_V2.read_text(encoding="utf-8"), HIGHLIGHTS_V2)
+    sys.path.insert(0, str(ROOT / "doc"))
+    import design_notes, design_render  # noqa: E401  s14-s16 的工程设计讲解
+    page = design_render.sync(page, ROOT, design_notes.DESIGNS, render_source)
+    PAGE_V2.write_text(page, encoding="utf-8", newline="\n")
+    print(f"已同步 {len(HIGHLIGHTS_V2)} 个脚本到 {PAGE_V2}")
 
 
 if __name__ == "__main__":
